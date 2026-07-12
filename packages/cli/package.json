@@ -1,0 +1,23 @@
+{
+  "name": "@developerEhsan/api-client-cli",
+  "version": "0.1.0",
+  "description": "Codegen CLI for @developerEhsan/api-client",
+  "type": "module",
+  "bin": {
+    "developerEhsan-api-client": "./dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@developerEhsan/api-client": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

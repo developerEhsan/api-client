@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+.turbo/
+coverage/
+.DS_Store
+*.tsbuildinfo
+.pnpm-store/
