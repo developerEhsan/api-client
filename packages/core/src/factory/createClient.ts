@@ -7,65 +7,52 @@
  * stubbed with TODOs here.
  */
 
+import type { AdapterName } from '../environment/edgeSafe';
+import type { HttpAdapter } from '../http/adapters/adapterInterface';
+import type { AuthConfig } from '../types/auth.types';
+import type { CacheEntry } from '../types/cache.types';
 import type {
   GlobalConfig,
   HttpAdapterLike,
   ModuleConfig,
   ModulesConfig,
   PerCallConfig,
-} from "../types/config.types";
-import type { AuthConfig } from "../types/auth.types";
-import type { ApiRequest, ApiResponse } from "../types/http.types";
-import type { CacheEntry } from "../types/cache.types";
-import type { SchemaAST } from "../types/openapi.types";
-import type {
-  ModuleContext,
-  ModuleDefinition,
-  ModuleRequestSpec,
-} from "../types/module.types";
-import type { HttpAdapter } from "../http/adapters/adapterInterface";
-import type { AdapterName } from "../environment/edgeSafe";
+} from '../types/config.types';
+import type { ApiRequest, ApiResponse } from '../types/http.types';
+import type { ModuleContext, ModuleDefinition, ModuleRequestSpec } from '../types/module.types';
+import type { SchemaAST } from '../types/openapi.types';
 
-import { ApiError } from "../errors/ApiError";
-import { ConfigurationError } from "../errors/ConfigurationError";
-import { classifyError } from "../errors/errorClassifier";
-import { detectEnvironment } from "../environment/detect";
+import { type AuthManager, createAuthManager } from '../auth/authManager';
+import { validateResponseBody } from '../codegen/schemaValidator';
+import { detectEnvironment } from '../environment/detect';
+import { assertFetchAvailable, resolveAdapterName } from '../environment/edgeSafe';
+import { ApiError } from '../errors/ApiError';
+import { ConfigurationError } from '../errors/ConfigurationError';
+import { SchemaError } from '../errors/SchemaError';
+import { TimeoutError } from '../errors/TimeoutError';
+import { classifyError } from '../errors/errorClassifier';
+import { createAxiosAdapter } from '../http/adapters/axiosAdapter';
+import { createFetchAdapter } from '../http/adapters/fetchAdapter';
 import {
-  resolveAdapterName,
-  assertFetchAvailable,
-} from "../environment/edgeSafe";
-import { createAxiosAdapter } from "../http/adapters/axiosAdapter";
-import { createFetchAdapter } from "../http/adapters/fetchAdapter";
-import { resolveRequestConfig } from "./mergeModuleConfig";
-import { createAuthManager, type AuthManager } from "../auth/authManager";
-import {
-  createLoggingInterceptor,
   type LoggingHooks,
-} from "../http/interceptors/logging.interceptor";
-import { buildUrl, serializeQuery } from "../utilities/urlBuilder";
+  createLoggingInterceptor,
+} from '../http/interceptors/logging.interceptor';
+import { createSchemaCache } from '../runtime/schemaCache';
+import { createSchemaLoader } from '../runtime/schemaLoader';
+import { resolveTenantId } from '../tenancy/tenantManager';
+import { computeCacheKey, createCache, isFresh } from '../utilities/cache';
+import { createCancellationManager, isAbortError } from '../utilities/cancellation';
+import { computeDedupeKey, createDeduplicator } from '../utilities/deduplicator';
+import { createQueue } from '../utilities/queue';
+import { type ResolvedRetryOptions, withRetry } from '../utilities/retry';
+import { buildUrl, serializeQuery } from '../utilities/urlBuilder';
+import { isModuleDefinition } from './createModule';
 import {
-  createDeduplicator,
-  computeDedupeKey,
-} from "../utilities/deduplicator";
-import { createCache, computeCacheKey, isFresh } from "../utilities/cache";
-import { createQueue } from "../utilities/queue";
-import {
-  createCancellationManager,
-  isAbortError,
-} from "../utilities/cancellation";
-import { withRetry, type ResolvedRetryOptions } from "../utilities/retry";
-import { resolveTenantId } from "../tenancy/tenantManager";
-import { createSchemaCache } from "../runtime/schemaCache";
-import { createSchemaLoader } from "../runtime/schemaLoader";
-import { validateResponseBody } from "../codegen/schemaValidator";
-import { SchemaError } from "../errors/SchemaError";
-import { TimeoutError } from "../errors/TimeoutError";
-import { isModuleDefinition } from "./createModule";
-import {
-  createModuleProxy,
   type AutoMethodDescriptor,
   type RequestRunner,
-} from "./createModuleProxy";
+  createModuleProxy,
+} from './createModuleProxy';
+import { resolveRequestConfig } from './mergeModuleConfig';
 
 /** Cache facade exposed on `client.cache`, backed by the client's LRU store. */
 export interface ClientCache {
@@ -98,43 +85,38 @@ export interface ApiClient {
 }
 
 const RESERVED_CLIENT_MEMBERS: ReadonlySet<string> = new Set([
-  "cache",
-  "config",
-  "setEnvironment",
-  "getSchema",
-  "on",
-  "off",
+  'cache',
+  'config',
+  'setEnvironment',
+  'getSchema',
+  'on',
+  'off',
 ]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== 'object' || value === null) return false;
   const proto: unknown = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
 
 function isAdapterLike(value: unknown): value is HttpAdapterLike {
   return (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    typeof (value as { send?: unknown }).send === "function"
+    typeof (value as { send?: unknown }).send === 'function'
   );
 }
 
 /** Eager configuration validation (spec E1, R7). */
 function validateConfig(config: GlobalConfig): void {
   if (!isPlainObject(config)) {
-    throw new ConfigurationError(
-      "createClient expects a configuration object.",
-    );
+    throw new ConfigurationError('createClient expects a configuration object.');
   }
   if (!isPlainObject(config.openapi)) {
-    throw new ConfigurationError(
-      'createClient requires an "openapi" configuration block (R7).',
-    );
+    throw new ConfigurationError('createClient requires an "openapi" configuration block (R7).');
   }
-  const hasBaseURL =
-    typeof config.baseURL === "string" && config.baseURL.length > 0;
-  const hasEnv = typeof config.activeEnvironment === "string";
+  const hasBaseURL = typeof config.baseURL === 'string' && config.baseURL.length > 0;
+  const hasEnv = typeof config.activeEnvironment === 'string';
   if (!hasBaseURL && !hasEnv) {
     throw new ConfigurationError(
       'createClient requires either "baseURL" or "activeEnvironment" to be set (R7).',
@@ -142,10 +124,7 @@ function validateConfig(config: GlobalConfig): void {
   }
   if (hasEnv) {
     const environments = config.environments;
-    if (
-      !environments ||
-      environments[config.activeEnvironment as string] === undefined
-    ) {
+    if (!environments || environments[config.activeEnvironment as string] === undefined) {
       throw new ConfigurationError(
         `activeEnvironment "${String(config.activeEnvironment)}" is not present in the environments map (E1).`,
       );
@@ -162,10 +141,10 @@ function instantiateAdapter(config: GlobalConfig): HttpAdapter {
   }
 
   const env = detectEnvironment();
-  const requestedName: AdapterName = requested === "fetch" ? "fetch" : "axios";
+  const requestedName: AdapterName = requested === 'fetch' ? 'fetch' : 'axios';
   const resolved = resolveAdapterName(requestedName, env);
 
-  if (resolved === "fetch") {
+  if (resolved === 'fetch') {
     assertFetchAvailable(env);
     return createFetchAdapter();
   }
@@ -179,13 +158,10 @@ function collectModuleDefinitions(
   const out: Record<string, ModuleDefinition> = {};
   if (!modules) return out;
   for (const [name, value] of Object.entries(modules)) {
-    if (name === "auto") continue;
+    if (name === 'auto') continue;
     if (isModuleDefinition(value)) {
       out[name] = value;
-    } else if (
-      isPlainObject(value) &&
-      isPlainObject((value as { methods?: unknown }).methods)
-    ) {
+    } else if (isPlainObject(value) && isPlainObject((value as { methods?: unknown }).methods)) {
       // Tolerate an un-branded but structurally-valid definition.
       out[name] = value as unknown as ModuleDefinition;
     }
@@ -196,7 +172,31 @@ function collectModuleDefinitions(
 /**
  * Create a configured API client.
  *
+ * The dynamic (untyped) factory: modules and their methods are declared inline
+ * via {@link defineModule}, and calls return `Promise<Result>`. For full type
+ * inference from generated codegen output, use `createTypedClient` instead.
+ *
  * @throws {ConfigurationError} for invalid configuration, detected eagerly.
+ *
+ * @example
+ * ```ts
+ * import { createClient, defineModule } from '@developerEhsan/api-client'
+ *
+ * const api = createClient({
+ *   baseURL: 'https://petstore3.swagger.io/api/v3',
+ *   openapi: { mode: 'runtime' },
+ *   modules: {
+ *     pet: defineModule({
+ *       methods: {
+ *         getPetById: (ctx, petId: number) =>
+ *           ctx.request({ method: 'GET', path: '/pet/{petId}', pathParams: { petId } }),
+ *       },
+ *     }),
+ *   },
+ * })
+ *
+ * const res = await api.pet.getPetById(1) // -> Promise<ApiResponse<unknown>>
+ * ```
  */
 export function createClient(config: GlobalConfig): ApiClient {
   validateConfig(config);
@@ -235,25 +235,20 @@ export function createClient(config: GlobalConfig): ApiClient {
 
   // --- Dev logging ---------------------------------------------------------
   const logging: LoggingHooks | undefined =
-    (
-      currentConfig.dev?.logging !== undefined &&
-      currentConfig.dev.logging !== false
-    ) ?
-      createLoggingInterceptor(currentConfig.dev.logging)
-    : undefined;
+    currentConfig.dev?.logging !== undefined && currentConfig.dev.logging !== false
+      ? createLoggingInterceptor(currentConfig.dev.logging)
+      : undefined;
 
   // --- Client-level utility singletons -------------------------------------
   // Shared across all requests so dedup/queue/cache coordinate globally.
   const deduplicator = createDeduplicator();
   const cacheStore = createCache({
     maxSize: currentConfig.cache?.maxSize ?? 500,
-    ...(currentConfig.cache?.onEvict ?
-      { onEvict: currentConfig.cache.onEvict }
-    : {}),
+    ...(currentConfig.cache?.onEvict ? { onEvict: currentConfig.cache.onEvict } : {}),
   });
   const queue = createQueue({
     concurrency: currentConfig.http?.queue?.concurrency ?? 10,
-    priority: currentConfig.http?.queue?.priority ?? "fifo",
+    priority: currentConfig.http?.queue?.priority ?? 'fifo',
   });
   const queueEnabled = currentConfig.http?.queue?.enabled ?? true;
   const cancellation = createCancellationManager({
@@ -267,31 +262,26 @@ export function createClient(config: GlobalConfig): ApiClient {
   let stopSchemaPolling: (() => void) | undefined;
   {
     const oa = currentConfig.openapi;
-    const wantsRuntime =
-      oa.mode !== "codegen" && typeof oa.runtimeURL === "string";
+    const wantsRuntime = oa.mode !== 'codegen' && typeof oa.runtimeURL === 'string';
     if (wantsRuntime && oa.runtimeURL) {
       const loader = createSchemaLoader({ cache: schemaCache });
       void loader.load(oa.runtimeURL).catch(() => undefined);
       const interval = currentConfig.dev?.schemaRefreshInterval;
-      if (typeof interval === "number" && interval > 0) {
+      if (typeof interval === 'number' && interval > 0) {
         const driftPolicy = {
-          mode: oa.validation?.mode ?? "loose",
-          ...(oa.validation?.onDriftDetected ?
-            { onDriftDetected: oa.validation.onDriftDetected }
-          : {}),
+          mode: oa.validation?.mode ?? 'loose',
+          ...(oa.validation?.onDriftDetected
+            ? { onDriftDetected: oa.validation.onDriftDetected }
+            : {}),
         };
-        stopSchemaPolling = loader.startPolling(
-          oa.runtimeURL,
-          interval,
-          driftPolicy,
-        );
+        stopSchemaPolling = loader.startPolling(oa.runtimeURL, interval, driftPolicy);
       }
     }
   }
 
   /** Methods eligible for dedup/cache. GET is always eligible. */
   const dedupeMethods = new Set(
-    (currentConfig.http?.dedupeMethod ?? ["GET"]).map((m) => m.toUpperCase()),
+    (currentConfig.http?.dedupeMethod ?? ['GET']).map((m) => m.toUpperCase()),
   );
   const dedupEnabled = currentConfig.http?.deduplication ?? true;
 
@@ -305,16 +295,16 @@ export function createClient(config: GlobalConfig): ApiClient {
   const authFingerprint = async (auth: AuthConfig): Promise<string | null> => {
     try {
       switch (auth.strategy) {
-        case "bearer":
-          return `bearer:${(await auth.getToken()) ?? ""}`;
-        case "oauth2":
-          return `oauth2:${(await auth.getAccessToken()) ?? ""}`;
-        case "apiKey":
+        case 'bearer':
+          return `bearer:${(await auth.getToken()) ?? ''}`;
+        case 'oauth2':
+          return `oauth2:${(await auth.getAccessToken()) ?? ''}`;
+        case 'apiKey':
           return `apikey:${await auth.getKey()}`;
-        case "cookie":
-          return "cookie";
+        case 'cookie':
+          return 'cookie';
         default:
-          return "none";
+          return 'none';
       }
     } catch {
       return null;
@@ -327,11 +317,7 @@ export function createClient(config: GlobalConfig): ApiClient {
     origin: { moduleName: string; methodName: string },
     perCall?: PerCallConfig,
   ): Promise<ApiResponse<T>> => {
-    const resolved = resolveRequestConfig(
-      currentConfig,
-      moduleConfigs[origin.moduleName],
-      perCall,
-    );
+    const resolved = resolveRequestConfig(currentConfig, moduleConfigs[origin.moduleName], perCall);
 
     // Auth-independent request pieces, computed once and reused across a
     // post-refresh retry.
@@ -343,12 +329,12 @@ export function createClient(config: GlobalConfig): ApiClient {
     const perCallTenant = perCall?.tenantId ?? resolved.tenantId;
     const tenantId = await resolveTenantId({
       ...(perCallTenant !== undefined ? { perCall: perCallTenant } : {}),
-      ...(typeof resolved.tenancy.getTenantId === "function" ?
-        { getTenantId: resolved.tenancy.getTenantId }
-      : {}),
+      ...(typeof resolved.tenancy.getTenantId === 'function'
+        ? { getTenantId: resolved.tenancy.getTenantId }
+        : {}),
     });
-    if (tenantId !== undefined && tenantId !== "") {
-      baseHeaders[resolved.tenancy.headerName ?? "X-Tenant-ID"] = tenantId;
+    if (tenantId !== undefined && tenantId !== '') {
+      baseHeaders[resolved.tenancy.headerName ?? 'X-Tenant-ID'] = tenantId;
     }
 
     // Auth-independent identity URL — the basis for stable dedup & cache keys
@@ -378,7 +364,7 @@ export function createClient(config: GlobalConfig): ApiClient {
      */
     const attempt = async (): Promise<{
       request: ApiRequest;
-      raw: Awaited<ReturnType<HttpAdapter["send"]>>;
+      raw: Awaited<ReturnType<HttpAdapter['send']>>;
     }> => {
       const auth = await authManager.resolve(resolved.auth, resolved.skipAuth);
       const headers: Record<string, string> = {
@@ -412,10 +398,10 @@ export function createClient(config: GlobalConfig): ApiClient {
 
       let outgoing = request;
       if (logging) outgoing = logging.onRequest(outgoing);
-      if (typeof currentConfig.hooks?.onRequest === "function") {
+      if (typeof currentConfig.hooks?.onRequest === 'function') {
         outgoing = await currentConfig.hooks.onRequest(outgoing);
       }
-      emit("request", outgoing);
+      emit('request', outgoing);
 
       // Timeout enforcement (spec N1). Adapters (esp. fetch) do not all honor
       // `timeout` on their own, so we drive an AbortController here and merge it
@@ -432,7 +418,7 @@ export function createClient(config: GlobalConfig): ApiClient {
           if (externalSignal.aborted) controller.abort();
           else {
             onExternalAbort = () => controller.abort();
-            externalSignal.addEventListener("abort", onExternalAbort, {
+            externalSignal.addEventListener('abort', onExternalAbort, {
               once: true,
             });
           }
@@ -444,7 +430,7 @@ export function createClient(config: GlobalConfig): ApiClient {
         outgoing = { ...outgoing, signal: controller.signal };
       }
 
-      let raw: Awaited<ReturnType<HttpAdapter["send"]>>;
+      let raw: Awaited<ReturnType<HttpAdapter['send']>>;
       try {
         raw = await adapter.send(outgoing);
       } catch (cause) {
@@ -455,11 +441,11 @@ export function createClient(config: GlobalConfig): ApiClient {
             timeoutMs,
           });
         }
-        throw classifyError({ kind: "network", cause, request: outgoing });
+        throw classifyError({ kind: 'network', cause, request: outgoing });
       } finally {
         if (timer !== undefined) clearTimeout(timer);
         if (onExternalAbort && externalSignal) {
-          externalSignal.removeEventListener("abort", onExternalAbort);
+          externalSignal.removeEventListener('abort', onExternalAbort);
         }
       }
       return { request: outgoing, raw };
@@ -467,18 +453,18 @@ export function createClient(config: GlobalConfig): ApiClient {
 
     const reportError = async (error: ApiError): Promise<never> => {
       if (logging) logging.onError(error);
-      emit("error", error);
+      emit('error', error);
       await currentConfig.hooks?.onError?.(error);
       throw error;
     };
 
     const toApiError = (caught: unknown): ApiError =>
-      caught instanceof ApiError ? caught : (
-        new ApiError({
-          message: "Request failed before dispatch.",
-          cause: caught,
-        })
-      );
+      caught instanceof ApiError
+        ? caught
+        : new ApiError({
+            message: 'Request failed before dispatch.',
+            cause: caught,
+          });
 
     // Retry options resolved for this request (defaults applied upstream).
     const retryOpts: ResolvedRetryOptions = {
@@ -495,7 +481,7 @@ export function createClient(config: GlobalConfig): ApiClient {
     // withRetry backs off; every other status returns its raw response.
     const dispatchWithRetry = (): Promise<{
       request: ApiRequest;
-      raw: Awaited<ReturnType<HttpAdapter["send"]>>;
+      raw: Awaited<ReturnType<HttpAdapter['send']>>;
     }> =>
       withRetry(
         async () => {
@@ -503,7 +489,7 @@ export function createClient(config: GlobalConfig): ApiClient {
           const { status, statusText, headers, data } = result.raw;
           if (status >= 500 || status === 429) {
             throw classifyError({
-              kind: "http",
+              kind: 'http',
               status,
               statusText,
               headers,
@@ -529,7 +515,7 @@ export function createClient(config: GlobalConfig): ApiClient {
 
       if (raw.status >= 400) {
         throw classifyError({
-          kind: "http",
+          kind: 'http',
           status: raw.status,
           statusText: raw.statusText,
           headers: raw.headers,
@@ -544,16 +530,10 @@ export function createClient(config: GlobalConfig): ApiClient {
       if (resolved.validation.enabled) {
         const ast = schemaCache.get();
         if (ast) {
-          const result = validateResponseBody(
-            ast,
-            spec.path,
-            spec.method,
-            raw.status,
-            raw.data,
-          );
+          const result = validateResponseBody(ast, spec.path, spec.method, raw.status, raw.data);
           if (!result.valid) {
-            const message = `Response validation failed for ${spec.method} ${spec.path}: ${result.errors.join("; ")}`;
-            if ((resolved.validation.mode ?? "loose") === "strict") {
+            const message = `Response validation failed for ${spec.method} ${spec.path}: ${result.errors.join('; ')}`;
+            if ((resolved.validation.mode ?? 'loose') === 'strict') {
               throw new SchemaError({ message, request });
             }
             console.warn(`[@developerEhsan/api-client] ${message}`);
@@ -569,33 +549,27 @@ export function createClient(config: GlobalConfig): ApiClient {
         fromCache: false,
       };
       if (logging) response = logging.onResponse(response);
-      if (typeof currentConfig.hooks?.onResponse === "function") {
-        response = (await currentConfig.hooks.onResponse(
-          response,
-        )) as ApiResponse<T>;
+      if (typeof currentConfig.hooks?.onResponse === 'function') {
+        response = (await currentConfig.hooks.onResponse(response)) as ApiResponse<T>;
       }
-      emit("response", response);
+      emit('response', response);
       return response;
     };
 
     // Concurrency queue (step 5) and dedup (step 6) wrappers.
     const withQueue = <R>(work: () => Promise<R>): Promise<R> =>
-      queueEnabled ?
-        queue.add(work, effectiveSignal ? { signal: effectiveSignal } : {})
-      : work();
+      queueEnabled ? queue.add(work, effectiveSignal ? { signal: effectiveSignal } : {}) : work();
 
     const method = spec.method.toUpperCase();
-    const isGet = method === "GET";
-    const dedupApplies =
-      dedupEnabled && !resolved.skipDedup && dedupeMethods.has(method);
+    const isGet = method === 'GET';
+    const dedupApplies = dedupEnabled && !resolved.skipDedup && dedupeMethods.has(method);
     const cacheConfigured = isGet && resolved.cache.enabled !== false;
 
     // Single auth fingerprint shared by cache + dedup keys (spec C8). When it
     // cannot be resolved (getter threw), scoping is unsafe: disable cache+dedup
     // so this request is never shared under an ambiguous key.
-    let fp: string | null = "none";
-    if (cacheConfigured || dedupApplies)
-      fp = await authFingerprint(resolved.auth);
+    let fp: string | null = 'none';
+    if (cacheConfigured || dedupApplies) fp = await authFingerprint(resolved.auth);
     const scopable = fp !== null;
 
     const withDedup = <R>(work: () => Promise<R>): Promise<R> => {
@@ -613,21 +587,21 @@ export function createClient(config: GlobalConfig): ApiClient {
     // --- Cache layer (GET only) ---------------------------------------------
     const cacheEligible = cacheConfigured && scopable;
     const cacheTtl = resolved.cache.ttl ?? 60_000;
-    const cacheStrategy = resolved.cache.strategy ?? "cache-first";
+    const cacheStrategy = resolved.cache.strategy ?? 'cache-first';
     const cacheBust = resolved.cache.bust === true;
 
     const emitCacheHit = (key: string, entry: CacheEntry): void => {
       currentConfig.hooks?.onCacheHit?.(key, entry);
-      emit("cacheHit", { key, entry });
+      emit('cacheHit', { key, entry });
     };
     const emitCacheMiss = (key: string): void => {
       currentConfig.hooks?.onCacheMiss?.(key);
-      emit("cacheMiss", { key });
+      emit('cacheMiss', { key });
     };
     const toCacheResponse = (entry: CacheEntry): ApiResponse<T> => ({
       data: entry.data as T,
       status: entry.status,
-      statusText: "",
+      statusText: '',
       headers: entry.headers,
       fromCache: true,
     });
@@ -667,7 +641,7 @@ export function createClient(config: GlobalConfig): ApiClient {
       if (cacheKey && !cacheBust) {
         const entry = cacheStore.get(cacheKey);
 
-        if (cacheStrategy === "network-first") {
+        if (cacheStrategy === 'network-first') {
           try {
             return await fetchThrough();
           } catch (caught) {
@@ -688,7 +662,7 @@ export function createClient(config: GlobalConfig): ApiClient {
             emitCacheHit(cacheKey, entry);
             return toCacheResponse(entry);
           }
-          if (cacheStrategy === "stale-while-revalidate") {
+          if (cacheStrategy === 'stale-while-revalidate') {
             emitCacheHit(cacheKey, entry);
             // Background revalidation; keep the stale entry if it fails (C2).
             void fetchThrough().catch(() => undefined);
@@ -716,14 +690,11 @@ export function createClient(config: GlobalConfig): ApiClient {
 
   for (const [name, definition] of Object.entries(moduleDefinitions)) {
     if (RESERVED_CLIENT_MEMBERS.has(name)) {
-      throw new ConfigurationError(
-        `Module name "${name}" collides with a reserved client member.`,
-      );
+      throw new ConfigurationError(`Module name "${name}" collides with a reserved client member.`);
     }
 
     const context: ModuleContext = {
-      request: (spec, perCall) =>
-        run(spec, { moduleName: name, methodName: "request" }, perCall),
+      request: (spec, perCall) => run(spec, { moduleName: name, methodName: 'request' }, perCall),
       client: undefined,
       moduleName: name,
     };
@@ -735,8 +706,7 @@ export function createClient(config: GlobalConfig): ApiClient {
     client[name] = createModuleProxy(
       {
         moduleName: name,
-        autoDescriptors:
-          definition.extends === "auto" ? autoDescriptors : undefined,
+        autoDescriptors: definition.extends === 'auto' ? autoDescriptors : undefined,
         methods: definition.methods,
         context,
         safeMode: currentConfig.safeMode ?? false,
@@ -794,7 +764,7 @@ export function createClient(config: GlobalConfig): ApiClient {
 
   return new Proxy(client as ApiClient, {
     get(target, prop, receiver): unknown {
-      if (typeof prop === "string" && RESERVED_CLIENT_MEMBERS.has(prop)) {
+      if (typeof prop === 'string' && RESERVED_CLIENT_MEMBERS.has(prop)) {
         return utility[prop as keyof typeof utility];
       }
       return Reflect.get(target, prop, receiver);

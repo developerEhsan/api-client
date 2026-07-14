@@ -18,48 +18,42 @@
  *     --input ./src/lib/api/openapi.json \
  *     --output ./src/lib/api/types/generated
  */
-import {
-  createTypedClient,
-  createModuleDefiner,
-} from "@developerEhsan/api-client";
-import type { OperationsMap } from "./types/generated/api.types";
-import { generatedModules } from "./types/generated/api.modules";
+import { createModuleDefiner, createTypedClient } from '@developerEhsan/api-client';
+import { generatedModules } from './types/generated/api.modules';
+import type { OperationsMap } from './types/generated/api.types';
 
 // Bound once to the generated spec. Pass the module name first and you get
 // reliable autocomplete of that module's methods + their input types, while
 // your return values stay whatever you return.
-const defineModule = createModuleDefiner<
-  OperationsMap,
-  typeof generatedModules
->();
+const defineModule = createModuleDefiner<OperationsMap, typeof generatedModules>();
 
 export const api = createTypedClient<OperationsMap>()(
   {
     // Petstore v3 lives under /api/v3 — the spec paths (/pet, /store, …) are
     // appended to this base.
-    baseURL: "https://petstore3.swagger.io/api/v3",
+    baseURL: 'https://petstore3.swagger.io/api/v3',
 
     // Dev logging prints each request/response to the console. Response
     // validation checks bodies against the loaded schema (loose = warn only).
     dev: { logging: true, validateResponses: true },
 
     openapi: {
-      mode: "runtime",
+      mode: 'runtime',
       // Fetched in the background; powers response validation + drift detection.
-      runtimeURL: "https://petstore3.swagger.io/api/v3/openapi.json",
-      validation: { enabled: true, mode: "loose" },
+      runtimeURL: 'https://petstore3.swagger.io/api/v3/openapi.json',
+      validation: { enabled: true, mode: 'loose' },
     },
 
     // Pipeline defaults for the whole app.
     http: {
       timeout: 12_000,
-      retry: { attempts: 3, backoff: "exponential", baseDelay: 400 },
+      retry: { attempts: 3, backoff: 'exponential', baseDelay: 400 },
       queue: { concurrency: 6 },
     },
 
     // GET responses are cached; stale entries are served instantly then
     // revalidated in the background.
-    cache: { strategy: "stale-while-revalidate", ttl: 30_000 },
+    cache: { strategy: 'stale-while-revalidate', ttl: 30_000 },
 
     // A newer search within 300ms auto-cancels the previous in-flight one.
     cancellation: { dedupeWindow: 300 },
@@ -76,8 +70,8 @@ export const api = createTypedClient<OperationsMap>()(
             // ctx.request: type a known `path` to autocomplete it and derive
             // method/pathParams/query/body + response; any string is allowed too.
             await ctx.request({
-              method: "GET",
-              path: "/pet/{petId}",
+              method: 'GET',
+              path: '/pet/{petId}',
               pathParams: { petId: Number(petid) },
             });
             return { removePet: true };
@@ -90,20 +84,20 @@ export const api = createTypedClient<OperationsMap>()(
       },
       // Definer form (opt-in): adds method-NAME + input autocomplete for a known
       // module. `defineModule('store', …)` suggests deleteOrder/getInventory/…
-      store: defineModule("store", {
+      store: defineModule('store', {
         methods: {
           getOrderById: async (_ctx, input) => {
             // `input.orderId` is typed from the generated operation.
             return {
               orderId: input.orderId,
-              status: "delivered",
-              note: "overridden",
+              status: 'delivered',
+              note: 'overridden',
             };
           },
         },
       }),
       // Brand-new module: free-form methods, appears as `api.invoices.*`.
-      invoices: defineModule("invoices", {
+      invoices: defineModule('invoices', {
         methods: {
           getInvoices: async () => {
             return { data: [] };

@@ -20,37 +20,39 @@
  * path and name in the query, while `api.store.placeOrder({ body: order })`
  * sends the body.
  */
-import type { GlobalConfig, ModuleConfig, ModulesConfig, PerCallConfig } from '../types/config.types'
-import type { ApiResponse, HttpMethod } from '../types/http.types'
+import type {
+  GlobalConfig,
+  ModuleConfig,
+  ModulesConfig,
+  PerCallConfig,
+} from '../types/config.types';
+import type { ApiResponse, HttpMethod } from '../types/http.types';
 import type {
   ModuleContext,
   ModuleDefinition,
   ModuleMethods,
   ModuleRequestSpec,
-} from '../types/module.types'
-import { createClient, type ApiClient } from './createClient'
-import { defineModule } from './createModule'
+} from '../types/module.types';
+import { type ApiClient, createClient } from './createClient';
+import { defineModule } from './createModule';
 
 /** One generated method descriptor (matches codegen `generatedModules`). */
 export interface GeneratedMethodDescriptor {
-  method: HttpMethod
-  path: string
-  isPaginated?: boolean
-  operationId: string
+  method: HttpMethod;
+  path: string;
+  isPaginated?: boolean;
+  operationId: string;
 }
 
 /** module → method → descriptor (the shape of `generatedModules`). */
-export type GeneratedModuleMap = Record<
-  string,
-  Record<string, GeneratedMethodDescriptor>
->
+export type GeneratedModuleMap = Record<string, Record<string, GeneratedMethodDescriptor>>;
 
 /** Merge an operation's params + query + body into one caller input object. */
 type OperationInput<Op> = (Op extends { params: infer P } ? P : object) &
   (Op extends { query: infer Q } ? Q : object) &
-  (Op extends { body: infer B } ? ([B] extends [never] ? object : { body: B }) : object)
+  (Op extends { body: infer B } ? ([B] extends [never] ? object : { body: B }) : object);
 
-type OperationResponse<Op> = Op extends { response: infer R } ? R : unknown
+type OperationResponse<Op> = Op extends { response: infer R } ? R : unknown;
 
 /**
  * The typed method. If the input has no required fields it becomes optional, so
@@ -58,7 +60,7 @@ type OperationResponse<Op> = Op extends { response: infer R } ? R : unknown
  */
 type TypedMethod<Op> = object extends OperationInput<Op>
   ? (input?: OperationInput<Op>, perCall?: PerCallConfig) => Promise<OperationResponse<Op>>
-  : (input: OperationInput<Op>, perCall?: PerCallConfig) => Promise<OperationResponse<Op>>
+  : (input: OperationInput<Op>, perCall?: PerCallConfig) => Promise<OperationResponse<Op>>;
 
 /** Map the descriptor map + OperationsMap into a typed `module.method()` tree. */
 export type TypedModules<Ops, Desc extends GeneratedModuleMap> = {
@@ -67,9 +69,9 @@ export type TypedModules<Ops, Desc extends GeneratedModuleMap> = {
       ? Id extends keyof Ops
         ? TypedMethod<Ops[Id]>
         : (input?: unknown, perCall?: PerCallConfig) => Promise<unknown>
-      : never
-  }
-}
+      : never;
+  };
+};
 
 // ---------------------------------------------------------------------------
 // Typed module context (`ctx`)
@@ -83,37 +85,54 @@ export type TypedModules<Ops, Desc extends GeneratedModuleMap> = {
 
 /** Union of every path string across the generated descriptor map. */
 type KnownPath<Desc extends GeneratedModuleMap> = {
-  [M in keyof Desc]: { [K in keyof Desc[M]]: Desc[M][K]['path'] }[keyof Desc[M]]
-}[keyof Desc]
+  [M in keyof Desc]: { [K in keyof Desc[M]]: Desc[M][K]['path'] }[keyof Desc[M]];
+}[keyof Desc];
 
 /** Union of the HTTP methods declared for a given `path`. */
 type MethodForPath<Desc extends GeneratedModuleMap, P> = {
   [M in keyof Desc]: {
-    [K in keyof Desc[M]]: Desc[M][K] extends { path: P; method: infer Me } ? Me : never
-  }[keyof Desc[M]]
-}[keyof Desc]
+    [K in keyof Desc[M]]: Desc[M][K] extends { path: P; method: infer Me } ? Me : never;
+  }[keyof Desc[M]];
+}[keyof Desc];
 
 /** The `operationId` registered at a `(path, method)` pair, if any. */
 type OpIdAt<Desc extends GeneratedModuleMap, P, Me> = {
   [M in keyof Desc]: {
     [K in keyof Desc[M]]: Desc[M][K] extends { path: P; method: Me; operationId: infer Id }
       ? Id
-      : never
-  }[keyof Desc[M]]
-}[keyof Desc]
+      : never;
+  }[keyof Desc[M]];
+}[keyof Desc];
 
 /** The `OperationsMap` entry for a `(path, method)` pair, or `never` if unknown. */
-type OpAt<Ops, Desc extends GeneratedModuleMap, P, Me> =
-  OpIdAt<Desc, P, Me> extends infer Id ? (Id extends keyof Ops ? Ops[Id] : never) : never
+type OpAt<Ops, Desc extends GeneratedModuleMap, P, Me> = OpIdAt<Desc, P, Me> extends infer Id
+  ? Id extends keyof Ops
+    ? Ops[Id]
+    : never
+  : never;
 
-type ParamsFor<Ops, Desc extends GeneratedModuleMap, P, Me> =
-  OpAt<Ops, Desc, P, Me> extends { params: infer X } ? X : Record<string, string | number>
-type QueryFor<Ops, Desc extends GeneratedModuleMap, P, Me> =
-  OpAt<Ops, Desc, P, Me> extends { query: infer X } ? X : Record<string, unknown>
-type BodyFor<Ops, Desc extends GeneratedModuleMap, P, Me> =
-  OpAt<Ops, Desc, P, Me> extends { body: infer X } ? ([X] extends [never] ? unknown : X) : unknown
-type ResponseFor<Ops, Desc extends GeneratedModuleMap, P, Me> =
-  OpAt<Ops, Desc, P, Me> extends { response: infer R } ? R : unknown
+type ParamsFor<Ops, Desc extends GeneratedModuleMap, P, Me> = OpAt<Ops, Desc, P, Me> extends {
+  params: infer X;
+}
+  ? X
+  : Record<string, string | number>;
+type QueryFor<Ops, Desc extends GeneratedModuleMap, P, Me> = OpAt<Ops, Desc, P, Me> extends {
+  query: infer X;
+}
+  ? X
+  : Record<string, unknown>;
+type BodyFor<Ops, Desc extends GeneratedModuleMap, P, Me> = OpAt<Ops, Desc, P, Me> extends {
+  body: infer X;
+}
+  ? [X] extends [never]
+    ? unknown
+    : X
+  : unknown;
+type ResponseFor<Ops, Desc extends GeneratedModuleMap, P, Me> = OpAt<Ops, Desc, P, Me> extends {
+  response: infer R;
+}
+  ? R
+  : unknown;
 
 /**
  * The `ctx.request` primitive on a typed client. The first overload triggers for
@@ -124,15 +143,15 @@ type ResponseFor<Ops, Desc extends GeneratedModuleMap, P, Me> =
 export interface TypedRequest<Ops, Desc extends GeneratedModuleMap> {
   <P extends KnownPath<Desc>, Me extends MethodForPath<Desc, P>>(
     spec: {
-      method: Me
-      path: P
-      pathParams?: ParamsFor<Ops, Desc, P, Me>
-      query?: QueryFor<Ops, Desc, P, Me>
-      body?: BodyFor<Ops, Desc, P, Me>
+      method: Me;
+      path: P;
+      pathParams?: ParamsFor<Ops, Desc, P, Me>;
+      query?: QueryFor<Ops, Desc, P, Me>;
+      body?: BodyFor<Ops, Desc, P, Me>;
     },
     perCall?: PerCallConfig,
-  ): Promise<ApiResponse<ResponseFor<Ops, Desc, P, Me>>>
-  <T = unknown>(spec: ModuleRequestSpec, perCall?: PerCallConfig): Promise<ApiResponse<T>>
+  ): Promise<ApiResponse<ResponseFor<Ops, Desc, P, Me>>>;
+  <T = unknown>(spec: ModuleRequestSpec, perCall?: PerCallConfig): Promise<ApiResponse<T>>;
 }
 
 /**
@@ -144,9 +163,9 @@ export interface TypedRequest<Ops, Desc extends GeneratedModuleMap> {
  * generated methods are still fully typed.
  */
 export interface TypedModuleContext<Ops, Desc extends GeneratedModuleMap> {
-  request: TypedRequest<Ops, Desc>
-  readonly client: TypedModules<Ops, Desc>
-  readonly moduleName: string
+  request: TypedRequest<Ops, Desc>;
+  readonly client: TypedModules<Ops, Desc>;
+  readonly moduleName: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,14 +175,16 @@ export interface TypedModuleContext<Ops, Desc extends GeneratedModuleMap> {
 /** A single method in a typed-client `modules` config: `ctx` first, then free. */
 export type ConfigModuleMethod<Ops, Desc extends GeneratedModuleMap> = (
   ctx: TypedModuleContext<Ops, Desc>,
+  // biome-ignore lint/suspicious/noExplicitAny: variadic user methods accept arbitrary args.
   ...args: any[]
-) => any
+  // biome-ignore lint/suspicious/noExplicitAny: user methods return arbitrary values.
+) => any;
 
 /** A module definition in a typed-client `modules` config. */
 export interface ConfigModuleDefinition<Ops, Desc extends GeneratedModuleMap> {
-  extends?: 'auto'
-  config?: ModuleConfig
-  methods: Record<string, ConfigModuleMethod<Ops, Desc>>
+  extends?: 'auto';
+  config?: ModuleConfig;
+  methods: Record<string, ConfigModuleMethod<Ops, Desc>>;
 }
 
 /**
@@ -176,20 +197,20 @@ export interface ConfigModuleDefinition<Ops, Desc extends GeneratedModuleMap> {
  * module, opt into {@link createModuleDefiner}.
  */
 export type TypedModulesConfig<Ops, Desc extends GeneratedModuleMap> = {
-  auto?: boolean
+  auto?: boolean;
 } & {
-  [moduleName: string]: ConfigModuleDefinition<Ops, Desc> | boolean | undefined
-}
+  [moduleName: string]: ConfigModuleDefinition<Ops, Desc> | boolean | undefined;
+};
 
 /** Strip the leading `ctx` param, preserving the developer's exact args + return. */
 type ExposedConfigMethod<F> = F extends (ctx: never, ...args: infer A) => infer R
   ? (...args: A) => R
-  : never
+  : never;
 
 /** Expose one config module definition as an `api.<module>.<method>` tree. */
 type ExposedConfigModule<D> = D extends { methods: infer M }
   ? { [K in keyof M]: ExposedConfigMethod<M[K]> }
-  : never
+  : never;
 
 /**
  * Project the user's `modules` config down to the module definitions it declares,
@@ -204,8 +225,8 @@ type ConfigModules<Mods> = string extends keyof Mods
         ? never
         : Mods[M] extends { methods: Record<string, (...args: never[]) => unknown> }
           ? M
-          : never]: ExposedConfigModule<Mods[M]>
-    }
+          : never]: ExposedConfigModule<Mods[M]>;
+    };
 
 /**
  * Merge the generated module tree with the config-supplied one. Config wins:
@@ -221,15 +242,12 @@ type MergeModuleTrees<Gen, Cfg> = {
       : Cfg[K]
     : K extends keyof Gen
       ? Gen[K]
-      : never
-}
+      : never;
+};
 
 /** The client returned by {@link createTypedClient}: utilities + typed modules. */
-export type TypedApiClient<
-  Ops,
-  Desc extends GeneratedModuleMap,
-  Mods = object,
-> = ApiClient & MergeModuleTrees<TypedModules<Ops, Desc>, ConfigModules<Mods>>
+export type TypedApiClient<Ops, Desc extends GeneratedModuleMap, Mods = object> = ApiClient &
+  MergeModuleTrees<TypedModules<Ops, Desc>, ConfigModules<Mods>>;
 
 /**
  * Method hints for a *known* module used by {@link createModuleDefiner}: each
@@ -250,8 +268,8 @@ export type ModuleMethodHints<
           perCall?: PerCallConfig,
         ) => Promise<unknown>
       : ModuleMethods[string]
-    : ModuleMethods[string]
-}>
+    : ModuleMethods[string];
+}>;
 
 /** The definer function returned by {@link createModuleDefiner}. */
 export interface ModuleDefiner<Ops, Mods extends GeneratedModuleMap> {
@@ -264,13 +282,13 @@ export interface ModuleDefiner<Ops, Mods extends GeneratedModuleMap> {
   <Name extends keyof Mods & string, M extends ModuleMethods>(
     name: Name,
     definition: {
-      extends?: 'auto'
-      config?: ModuleConfig
-      methods: M & ModuleMethodHints<Ops, Mods, Mods[Name]>
+      extends?: 'auto';
+      config?: ModuleConfig;
+      methods: M & ModuleMethodHints<Ops, Mods, Mods[Name]>;
     },
-  ): ModuleDefinition<M>
+  ): ModuleDefinition<M>;
   /** Define a *brand-new* module (name not in the generated map). */
-  <M extends ModuleMethods>(name: string, definition: ModuleDefinition<M>): ModuleDefinition<M>
+  <M extends ModuleMethods>(name: string, definition: ModuleDefinition<M>): ModuleDefinition<M>;
 }
 
 /**
@@ -289,60 +307,95 @@ export interface ModuleDefiner<Ops, Mods extends GeneratedModuleMap> {
  * The name argument is type-level only — the module's real name is still its
  * key in `modules`. At runtime this defers to {@link defineModule} for the same
  * eager validation + branding.
+ *
+ * @example
+ * ```ts
+ * import { createModuleDefiner } from '@developerEhsan/api-client'
+ * import type { OperationsMap } from './generated/api.types'
+ * import { generatedModules } from './generated/api.modules'
+ *
+ * const defineModule = createModuleDefiner<OperationsMap, typeof generatedModules>()
+ *
+ * const store = defineModule('store', {
+ *   methods: {
+ *     // `input.orderId` is typed from the generated operation; return shape is free
+ *     deleteOrder: async (ctx, input) => {
+ *       await ctx.request({ method: 'DELETE', path: '/store/order/{orderId}', pathParams: input })
+ *       return { deleted: true }
+ *     },
+ *   },
+ * })
+ * ```
  */
 export function createModuleDefiner<Ops, Mods extends GeneratedModuleMap>(): ModuleDefiner<
   Ops,
   Mods
 > {
   return ((_name: string, definition: ModuleDefinition) =>
-    defineModule(definition)) as ModuleDefiner<Ops, Mods>
+    defineModule(definition)) as ModuleDefiner<Ops, Mods>;
 }
 
 /** Extract `{placeholder}` names from a path template. */
 function pathPlaceholders(path: string): Set<string> {
-  const names = new Set<string>()
-  const re = /\{([^}]+)\}/g
-  let match: RegExpExecArray | null
+  const names = new Set<string>();
+  const re = /\{([^}]+)\}/g;
+  let match: RegExpExecArray | null;
+  // biome-ignore lint/suspicious/noAssignInExpressions: canonical regex exec() iteration idiom.
   while ((match = re.exec(path)) !== null) {
-    if (match[1]) names.add(match[1])
+    if (match[1]) names.add(match[1]);
   }
-  return names
+  return names;
 }
 
 /**
  * Turn a descriptor map into a runtime {@link ModulesConfig}. Each method splits
  * its single input object into pathParams / query / body and runs the pipeline
  * via `ctx.request`, returning the unwrapped `.data`.
+ *
+ * Usually called for you by {@link createTypedClient}; call it directly only to
+ * inspect or post-process the generated modules before wiring your own client.
+ *
+ * @example
+ * ```ts
+ * import { buildModulesFromDescriptors, createClient } from '@developerEhsan/api-client'
+ * import { generatedModules } from './generated/api.modules'
+ *
+ * const modules = buildModulesFromDescriptors(generatedModules)
+ * const api = createClient({
+ *   baseURL: 'https://petstore3.swagger.io/api/v3',
+ *   openapi: { mode: 'runtime' },
+ *   modules,
+ * })
+ * const pet = await api.pet.getPetById({ petId: 1 }) // -> unwrapped .data
+ * ```
  */
-export function buildModulesFromDescriptors(
-  descriptors: GeneratedModuleMap,
-): ModulesConfig {
-  const modules: ModulesConfig = { auto: false }
+export function buildModulesFromDescriptors(descriptors: GeneratedModuleMap): ModulesConfig {
+  const modules: ModulesConfig = { auto: false };
 
   for (const [moduleName, methods] of Object.entries(descriptors)) {
     const methodDefs: Record<
       string,
       (ctx: ModuleContext, input?: unknown, perCall?: PerCallConfig) => Promise<unknown>
-    > = {}
+    > = {};
 
     for (const [methodName, descriptor] of Object.entries(methods)) {
-      const placeholders = pathPlaceholders(descriptor.path)
+      const placeholders = pathPlaceholders(descriptor.path);
 
       methodDefs[methodName] = async (ctx, input?, perCall?) => {
-        const pathParams: Record<string, string | number> = {}
-        const query: Record<string, unknown> = {}
-        let body: unknown
+        const pathParams: Record<string, string | number> = {};
+        const query: Record<string, unknown> = {};
+        let body: unknown;
 
         if (input !== undefined && input !== null) {
           if (typeof input === 'object' && !Array.isArray(input)) {
             for (const [key, value] of Object.entries(input as Record<string, unknown>)) {
-              if (key === 'body') body = value
-              else if (placeholders.has(key)) pathParams[key] = value as string | number
-              else query[key] = value
+              if (key === 'body') body = value;
+              else if (placeholders.has(key)) pathParams[key] = value as string | number;
+              else query[key] = value;
             }
           } else {
             // Raw non-object input (array/string) is treated as the body.
-            body = input
+            body = input;
           }
         }
 
@@ -355,15 +408,15 @@ export function buildModulesFromDescriptors(
             ...(body !== undefined ? { body } : {}),
           },
           perCall,
-        )
-        return response.data
-      }
+        );
+        return response.data;
+      };
     }
 
-    modules[moduleName] = defineModule({ methods: methodDefs as unknown as ModuleMethods })
+    modules[moduleName] = defineModule({ methods: methodDefs as unknown as ModuleMethods });
   }
 
-  return modules
+  return modules;
 }
 
 /**
@@ -378,6 +431,21 @@ export function buildModulesFromDescriptors(
  * @typeParam Ops - the generated `OperationsMap` type.
  * @returns a factory taking `(config, descriptors)`. `config.modules`, if
  * present, is merged over the generated modules so you can add custom methods.
+ *
+ * @example
+ * ```ts
+ * import { createTypedClient } from '@developerEhsan/api-client'
+ * import type { OperationsMap } from './generated/api.types'
+ * import { generatedModules } from './generated/api.modules'
+ *
+ * const api = createTypedClient<OperationsMap>()(
+ *   { baseURL: 'https://petstore3.swagger.io/api/v3', openapi: { mode: 'runtime' } },
+ *   generatedModules,
+ * )
+ *
+ * const pet = await api.pet.getPetById({ petId: 1 })         // pet: Pet
+ * const available = await api.pet.findPetsByStatus({ status: 'available' }) // Pet[]
+ * ```
  */
 export function createTypedClient<Ops>() {
   return <
@@ -387,19 +455,19 @@ export function createTypedClient<Ops>() {
     config: Omit<GlobalConfig, 'modules'> & { modules?: Mods },
     descriptors: Desc,
   ): TypedApiClient<Ops, Desc, Mods> => {
-    const generated = buildModulesFromDescriptors(descriptors)
+    const generated = buildModulesFromDescriptors(descriptors);
     // The typed config carries a richer `ctx` type than the runtime
     // `ModulesConfig`; the runtime shape is structurally compatible, so narrow
     // at this boundary.
-    const configModules = (config.modules ?? {}) as unknown as ModulesConfig
+    const configModules = (config.modules ?? {}) as unknown as ModulesConfig;
 
     // Merge config over generated PER METHOD (not whole-module): a config module
     // that overrides `store` must keep the generated `store` methods it didn't
     // touch. This mirrors the type-level `MergeModuleTrees` (config wins per
     // method) — a shallow `{ ...generated, ...config }` would drop them.
-    const modules: ModulesConfig = { ...generated }
+    const modules: ModulesConfig = { ...generated };
     for (const [name, value] of Object.entries(configModules)) {
-      const gen = generated[name]
+      const gen = generated[name];
       if (
         value &&
         typeof value === 'object' &&
@@ -408,19 +476,19 @@ export function createTypedClient<Ops>() {
         'methods' in value &&
         'methods' in gen
       ) {
-        const genDef = gen as ModuleDefinition
-        const cfgDef = value as ModuleDefinition
+        const genDef = gen as ModuleDefinition;
+        const cfgDef = value as ModuleDefinition;
         modules[name] = defineModule({
           ...genDef,
           ...cfgDef,
           methods: { ...genDef.methods, ...cfgDef.methods },
-        })
+        });
       } else {
-        modules[name] = value
+        modules[name] = value;
       }
     }
 
-    const client = createClient({ ...config, modules })
-    return client as unknown as TypedApiClient<Ops, Desc, Mods>
-  }
+    const client = createClient({ ...config, modules });
+    return client as unknown as TypedApiClient<Ops, Desc, Mods>;
+  };
 }

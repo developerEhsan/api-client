@@ -4,11 +4,11 @@
  *
  *   ['developerEhsan', module, method, params]
  */
-import type { QueryKey } from './types'
+import type { QueryKey } from './types';
 
 /** Root key for a module: `['developerEhsan', module]`. */
 export function moduleKey(module: string): readonly ['developerEhsan', string] {
-  return ['developerEhsan', module]
+  return ['developerEhsan', module];
 }
 
 /**
@@ -17,7 +17,7 @@ export function moduleKey(module: string): readonly ['developerEhsan', string] {
  */
 export function methodKey(module: string, method: string, params?: unknown): QueryKey {
   if (params === undefined || params === null) {
-    return ['developerEhsan', module, method]
+    return ['developerEhsan', module, method];
   }
-  return ['developerEhsan', module, method, params]
+  return ['developerEhsan', module, method, params];
 }

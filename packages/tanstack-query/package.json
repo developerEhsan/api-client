@@ -2,8 +2,27 @@
   "name": "@developerEhsan/api-client-query",
   "version": "0.1.0",
   "description": "TanStack Query v5 integration for @developerEhsan/api-client (React, Vue, Solid)",
+  "license": "MIT",
+  "author": "EHSAN <ehsan@platas.io>",
+  "homepage": "https://github.com/developerEhsan/api-client#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/developerEhsan/api-client.git",
+    "directory": "packages/tanstack-query"
+  },
+  "bugs": {
+    "url": "https://github.com/developerEhsan/api-client/issues"
+  },
+  "keywords": ["api-client", "tanstack-query", "react-query", "vue-query", "solid-query"],
   "type": "module",
   "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "files": ["dist"],
   "exports": {
     "./react": {

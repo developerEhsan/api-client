@@ -3,22 +3,22 @@
  * and query serialization. No IO.
  */
 
-import { ConfigurationError } from '../errors/ConfigurationError'
+import { ConfigurationError } from '../errors/ConfigurationError';
 
 /** Input to {@link buildUrl}. */
 export interface BuildUrlInput {
   /** Base URL, e.g. `https://api.example.com` (trailing slash tolerated). */
-  baseURL: string
+  baseURL: string;
   /** Path template, e.g. `/invoices/{id}`. */
-  path: string
+  path: string;
   /** Values substituted into `{param}` placeholders in the path. */
-  pathParams?: Record<string, string | number>
+  pathParams?: Record<string, string | number>;
   /** Query params appended to the URL (undefined/null skipped). */
-  query?: Record<string, unknown>
+  query?: Record<string, unknown>;
 }
 
 /** Match `{name}` placeholders in a path template. */
-const PLACEHOLDER = /\{([^{}]+)\}/g
+const PLACEHOLDER = /\{([^{}]+)\}/g;
 
 /**
  * Substitute `{param}` placeholders, normalize base/path joining, and append a
@@ -30,27 +30,23 @@ const PLACEHOLDER = /\{([^{}]+)\}/g
  *   single leading slash (E5).
  */
 export function buildUrl(input: BuildUrlInput): string {
-  const { baseURL, path, pathParams, query } = input
+  const { baseURL, path, pathParams, query } = input;
 
   const substituted = path.replace(PLACEHOLDER, (_match, rawName: string) => {
-    const name = rawName.trim()
-    const value = pathParams?.[name]
+    const name = rawName.trim();
+    const value = pathParams?.[name];
     if (value === undefined || value === null) {
-      throw new ConfigurationError(
-        `Missing required path parameter "${name}" for path "${path}"`,
-      )
+      throw new ConfigurationError(`Missing required path parameter "${name}" for path "${path}"`);
     }
-    return encodeURIComponent(String(value))
-  })
+    return encodeURIComponent(String(value));
+  });
 
-  const base = baseURL.replace(/\/+$/, '')
-  const normalizedPath = substituted.length === 0
-    ? ''
-    : `/${substituted.replace(/^\/+/, '')}`
+  const base = baseURL.replace(/\/+$/, '');
+  const normalizedPath = substituted.length === 0 ? '' : `/${substituted.replace(/^\/+/, '')}`;
 
-  const url = `${base}${normalizedPath}`
-  const qs = serializeQuery(query)
-  return qs.length > 0 ? `${url}?${qs}` : url
+  const url = `${base}${normalizedPath}`;
+  const qs = serializeQuery(query);
+  return qs.length > 0 ? `${url}?${qs}` : url;
 }
 
 /**
@@ -62,35 +58,35 @@ export function buildUrl(input: BuildUrlInput): string {
  * - Keys and values are percent-encoded.
  */
 export function serializeQuery(query?: Record<string, unknown>): string {
-  if (!query) return ''
-  const parts: string[] = []
+  if (!query) return '';
+  const parts: string[] = [];
 
   const append = (key: string, value: unknown): void => {
-    if (value === undefined || value === null) return
-    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(scalarToString(value))}`)
-  }
+    if (value === undefined || value === null) return;
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(scalarToString(value))}`);
+  };
 
   for (const [key, value] of Object.entries(query)) {
     if (Array.isArray(value)) {
-      for (const item of value) append(key, item)
+      for (const item of value) append(key, item);
     } else {
-      append(key, value)
+      append(key, value);
     }
   }
 
-  return parts.join('&')
+  return parts.join('&');
 }
 
 /** Stringify a scalar query value; objects are JSON-encoded as a fallback. */
 function scalarToString(value: unknown): string {
   switch (typeof value) {
     case 'string':
-      return value
+      return value;
     case 'number':
     case 'boolean':
     case 'bigint':
-      return String(value)
+      return String(value);
     default:
-      return JSON.stringify(value) ?? ''
+      return JSON.stringify(value) ?? '';
   }
 }

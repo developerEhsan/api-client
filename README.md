@@ -1,5 +1,11 @@
 # @developerEhsan/api-client
 
+[![CI](https://github.com/developerEhsan/api-client/actions/workflows/ci.yml/badge.svg)](https://github.com/developerEhsan/api-client/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@developerEhsan/api-client.svg)](https://www.npmjs.com/package/@developerEhsan/api-client)
+[![npm downloads](https://img.shields.io/npm/dm/@developerEhsan/api-client.svg)](https://www.npmjs.com/package/@developerEhsan/api-client)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+
 > A typed, modular, universal API client factory for TypeScript — with a full
 > request lifecycle (queue → dedup → cache → auth → retry → validate), OpenAPI
 > codegen, multi-tenancy, and first-class TanStack Query support for React, Vue,
@@ -35,10 +41,12 @@ after that you can jump straight to the reference tables.
 20. [TanStack Query — React](#20-tanstack-query--react)
 21. [TanStack Query — Vue](#21-tanstack-query--vue)
 22. [TanStack Query — Solid](#22-tanstack-query--solid)
-23. [Framework & runtime guides](#23-framework--runtime-guides)
-24. [Testing your code](#24-testing-your-code)
-25. [Full public API reference](#25-full-public-api-reference)
-26. [Troubleshooting & FAQ](#26-troubleshooting--faq)
+23. [SSR without leaking your backend (RPC bridge)](#23-ssr-without-leaking-your-backend-rpc-bridge)
+24. [Framework & runtime guides](#24-framework--runtime-guides)
+25. [Testing your code](#25-testing-your-code)
+26. [Full public API reference](#26-full-public-api-reference)
+27. [Troubleshooting & FAQ](#27-troubleshooting--faq)
+28. [Roadmap (planned features)](#28-roadmap-planned-features)
 
 ---
 
@@ -76,6 +84,7 @@ code stays clean.
 | **Codegen** | Generate TS types + module descriptors from an OpenAPI 3.x spec |
 | **Validation** | Runtime response validation + schema drift detection |
 | **TanStack Query** | Typed `queryOptions` / `mutationOptions` / `infiniteQueryOptions` for React, Vue, Solid |
+| **SSR RPC bridge** | Call `api.module.method()` from client components in Next.js / TanStack Start **without** exposing the backend URL, paths, or OpenAPI to the browser |
 | **Testing** | `createMockClient` + `MockAdapter` |
 
 ### Packages
@@ -85,6 +94,8 @@ code stays clean.
 | `@developerEhsan/api-client` | `@developerEhsan/api-client` | The runtime library |
 | — codegen entry | `@developerEhsan/api-client/codegen` | Node-only codegen functions (used by the CLI) |
 | — testing entry | `@developerEhsan/api-client/testing` | Mock client & adapter |
+| — server entry | `@developerEhsan/api-client/server` | SSR RPC bridge — server half (`createRpcHandler`, Next/route glue) |
+| — browser entry | `@developerEhsan/api-client/browser` | SSR RPC bridge — dependency-free browser client (`createRpcClient`, transports) |
 | `@developerEhsan/api-client-cli` | `npx @developerEhsan/api-client` | Codegen CLI |
 | `@developerEhsan/api-client-query` | `.../query/react` \| `/vue` \| `/solid` | TanStack Query integration |
 
@@ -1024,30 +1035,207 @@ function Users() {
 
 ---
 
-## 23. Framework & runtime guides
+## 23. SSR without leaking your backend (RPC bridge)
+
+### The problem
+
+In a client-side app the client runs in the browser and calls your backend
+directly — the base URL and paths are visible in the Network tab by design. In
+an SSR framework (Next.js, TanStack Start) you often **don't want** the browser
+to see:
+
+- the backend **base URL**,
+- the backend **paths** (`/pet/{petId}`, `/internal/billing/...`),
+- the **OpenAPI document**.
+
+If you import the normal client into a **client component**, all of that ships in
+the JS bundle and every call appears in the Network tab pointing at your real
+backend. The bridge solves this without giving up the `api.module.method()`
+ergonomics.
+
+### How it works
+
+```text
+ Browser (client component)                Server (Node / edge)
+ ───────────────────────────               ─────────────────────────────
+ api.pet.getPetById({ petId })             createRpcHandler(realApi, { expose })
+   │  proxy, typed via `typeof serverApi`     │  allowlist → authorize → dispatch
+   │  (type-only, erased at build)            ▼  runs the REAL client (holds secrets)
+   ▼  POST same-origin { module,method,args }
+ transport ───────────────────────────────▶ { ok: true, data } | { ok: false, error }
+```
+
+- The browser proxy carries **zero** runtime knowledge of URL/paths/OpenAPI —
+  types come purely from `type Api = typeof serverApi`, a **type-only** import
+  that is erased at build. (The compiled browser bundle is a few KB and contains
+  no backend host, paths, or axios.)
+- The server handler is the **single trust boundary**: everything the browser
+  sends is treated as hostile until validated.
+
+### Step 1 — server: the handler (holds all secrets)
+
+```ts
+// lib/api/api.config.ts  (server-only module)
+import { createTypedClient } from '@developerEhsan/api-client'
+import { createRpcHandler } from '@developerEhsan/api-client/server'
+import type { OperationsMap } from './types/generated/api.types'
+import { generatedModules } from './types/generated/api.modules'
+
+export const api = createTypedClient<OperationsMap>()(
+  { baseURL: process.env.API_URL!, openapi: { mode: 'runtime' } },
+  generatedModules,
+)
+export type Api = typeof api
+
+export const rpcHandler = createRpcHandler(api, {
+  // Deny-by-default allowlist. Module AND method names autocomplete here, and a
+  // typo is a compile error. `store: true` would expose every store method.
+  expose: {
+    pet: ['getPetById', 'findPetsByStatus', 'addPet'],
+    store: ['getInventory'],
+  },
+  // Per-call permission (reads open, writes gated by a session cookie).
+  authorize: async (ctx, call) => {
+    if (call.method === 'addPet') return (await ctx.getCookie?.('editor')) === '1'
+    return true
+  },
+  onRequest: (_ctx, call) => console.log(`[rpc] ${call.module}.${call.method}`),
+  transformResult: (result, call) => result, // redact fields here if needed
+  onError: (error, call) => console.error(`[rpc] ${call?.method} failed`, error),
+})
+```
+
+### Step 2 — expose it via a transport
+
+**Option A — Next.js Server Action** (CSRF handled by Next):
+
+```ts
+// app/actions.ts
+'use server'
+import { createNextRpcAction } from '@developerEhsan/api-client/server'
+import { rpcHandler } from '@/lib/api/api.config'
+export const rpc = createNextRpcAction(rpcHandler)
+```
+
+**Option B — generic HTTP route** (framework-agnostic; enforces its own CSRF):
+
+```ts
+// app/api/rpc/route.ts
+import { createRpcRouteHandler } from '@developerEhsan/api-client/server'
+import { rpcHandler } from '@/lib/api/api.config'
+export const POST = createRpcRouteHandler(rpcHandler)
+// { allowedOrigins?, maxBodyBytes = 128*1024, csrf = true }
+```
+
+### Step 3 — browser: the bridge client
+
+```ts
+// lib/api/rpc-client.ts
+import { createRpcClient, serverActionTransport } from '@developerEhsan/api-client/browser'
+import type { Api } from './api.config' // ← type-only import; erased at build
+import { rpc } from '@/app/actions'
+
+export const api = createRpcClient<Api>(serverActionTransport(rpc))
+// Or, for the generic route:
+//   import { httpTransport } from '@developerEhsan/api-client/browser'
+//   export const api = createRpcClient<Api>(httpTransport({ endpoint: '/api/rpc' }))
+```
+
+### Step 4 — call it from a client component
+
+```tsx
+'use client'
+import { api } from '@/lib/api/rpc-client'
+import { ApiError } from '@developerEhsan/api-client/browser'
+
+async function load() {
+  try {
+    const pet = await api.pet.getPetById({ petId: 1 }) // → Pet, fully typed
+  } catch (e) {
+    if (e instanceof ApiError) console.log(e.status, e.message) // rehydrated!
+  }
+}
+```
+
+TanStack Query works over the bridge too — point `createQueryIntegration` at the
+bridge client and the **paths-stripped** descriptor the codegen emits
+(`api.rpc.ts`, which contains verbs + `hasPathParams` but no paths):
+
+```ts
+import { createQueryIntegration } from '@developerEhsan/api-client-query/react'
+import { api } from './rpc-client'
+import { rpcModules } from './types/generated/api.rpc' // no backend paths
+export const q = createQueryIntegration(api, { modules: rpcModules })
+```
+
+### Cancellation
+
+Pass an `AbortSignal` as usual — `api.pet.getPetById({ petId }, { signal })`. The
+signal is **not** sent over the wire (it isn't serializable); it's honored
+locally and rejects the promise with an `AbortError` on abort.
+
+### Security model (deny-by-default)
+
+The handler enforces all of the following before dispatch:
+
+| Concern | Guarantee |
+| --- | --- |
+| Arbitrary method calls | Deny-by-default `expose` allowlist; client strings are validated, never used to index blindly |
+| Prototype pollution | `__proto__`/`constructor`/`prototype` rejected in names and input |
+| Authorization | Optional `authorize(ctx, call)`; deny returns the **same** error as "unknown method" (no enumeration) |
+| SSRF / option injection | Client `perCall` is dropped except a **clamped** `timeout`; no `baseURL`/`adapter`/`headers`/`auth` override |
+| DoS | Input depth/breadth caps (`maxInputDepth`/`maxInputKeys`) + body-size cap on the HTTP route |
+| CSRF | Server Actions: Next's built-in protection. HTTP route: POST + `application/json` + Origin/`Sec-Fetch-Site` check |
+| Error leakage | Only `{ name, status, code, message }` cross the wire; stacks, request URLs, and headers never do (`details` only when `dev: true`) |
+
+> **Note:** the bridge client *type* mirrors your whole API surface, so
+> `api.pet.deletePet(...)` still type-checks even if it isn't exposed — the
+> `expose` allowlist is the runtime gate, and an un-exposed call is denied.
+
+A complete, runnable example lives in [`examples/nextjs`](./examples/nextjs).
+
+---
+
+## 24. Framework & runtime guides
 
 ### React SPA / Vite
 
 Create the client once in `src/api.ts` and import it. Combine with the React
-Query integration (§20). Nothing special required.
+Query integration (§20). Nothing special required — the client runs entirely in
+the browser and talks to your backend directly.
 
 ### Next.js — App Router (RSC & Server Actions)
 
-- **Do not** read `localStorage` on the server. Use `serverTokenFromCookie()` /
-  `serverTenantResolver()`.
-- Wrap per-request work in `runWithTenant()` when multi-tenant.
-- Prefetch in a Server Component and hydrate on the client with TanStack's
-  `dehydrate`/`HydrationBoundary` — the `queryOptions` factories work in both.
+There are **two ways** to use the client in Next.js. Pick based on where your
+backend URL is allowed to be seen:
 
-```ts
-// server-safe client
-export const api = createClient({
-  baseURL: process.env.API_URL!,
-  openapi: { mode: 'runtime' },
-  auth: { strategy: 'bearer', getToken: serverTokenFromCookie('access_token') },
-  tenancy: { getTenantId: serverTenantResolver('x-tenant-id') },
-})
-```
+1. **Server-only (RSC / Server Actions / route handlers)** — call the real `api`
+   directly. The request happens on the server; nothing leaks. Use this for data
+   you fetch during render.
+   - **Do not** read `localStorage` on the server. Use `serverTokenFromCookie()` /
+     `serverTenantResolver()`.
+   - Wrap per-request work in `runWithTenant()` when multi-tenant.
+
+   ```ts
+   // server-safe client
+   export const api = createClient({
+     baseURL: process.env.API_URL!,
+     openapi: { mode: 'runtime' },
+     auth: { strategy: 'bearer', getToken: serverTokenFromCookie('access_token') },
+     tenancy: { getTenantId: serverTenantResolver('x-tenant-id') },
+   })
+   ```
+
+2. **Client components that must call the API** — do **not** import the real
+   client (that would ship your base URL, backend paths, and OpenAPI into the
+   browser bundle). Use the **SSR RPC bridge** (§23): a client-side proxy with the
+   same `api.module.method()` surface that forwards each call to a Server Action
+   or route handler. The browser only ever sees `POST /` with `{ module, method,
+   args }`.
+
+For TanStack Query prefetch/hydration, the `queryOptions` factories work in both
+Server Components (prefetch + `dehydrate`) and client components
+(`HydrationBoundary`); route client-component queries through the bridge client.
 
 ### Node scripts / backends-for-frontends
 
@@ -1065,7 +1253,7 @@ createClient({ http: { adapter: 'fetch' }, /* ... */ })
 
 ---
 
-## 24. Testing your code
+## 25. Testing your code
 
 Use the built-in mock client — no real network, full pipeline.
 
@@ -1099,13 +1287,16 @@ can also use `createMockAdapter()` directly with a real `createClient`.
 
 ---
 
-## 25. Full public API reference
+## 26. Full public API reference
 
 ### `@developerEhsan/api-client`
 
 **Factory**
 
-- `createClient(config: GlobalConfig): ApiClient`
+- `createClient(config: GlobalConfig): ApiClient` — dynamic/untyped client
+- `createTypedClient<OperationsMap>()(config, generatedModules): TypedApiClient` — fully-typed, curried; `config.modules` is the source of truth and overrides generated methods per-method
+- `createModuleDefiner<Ops, typeof generatedModules>()` → `defineModule('store', {...})` with method-name + input autocomplete
+- `buildModulesFromDescriptors(descriptors)` — build runtime modules from a generated descriptor map
 - `defineModule({ config?, methods, extends? }): ModuleDefinition`
 
 **Client instance members**
@@ -1151,10 +1342,25 @@ type `HttpAdapter`
 `createCancellationManager(config)`, `isAbortError(err)`, `linkSignals(...signals)`,
 `withRetry(fn, opts, deps?)`, `computeBackoff(...)`, `parseRetryAfter(headers)`
 
+### `@developerEhsan/api-client/server` (SSR RPC bridge — server)
+
+- `createRpcHandler(api, options): RpcHandler` — options: `expose` (required, deny-by-default, typed allowlist), `authorize?`, `onRequest?`, `onError?`, `transformResult?`, `maxInputDepth?`, `maxInputKeys?`, `maxTimeout?`, `dev?`
+- `createNextRpcAction(handler): NextRpcAction` — wrap as a Next.js Server Action
+- `createRpcRouteHandler(handler, { csrf?, allowedOrigins?, maxBodyBytes? }): (Request) => Promise<Response>`
+- `RpcSecurityError`, types `RpcHandlerOptions`, `ExposeMap`, `RpcRequestContext`, `RpcCall`, `RpcResponse`, `RpcErrorShape`
+
+### `@developerEhsan/api-client/browser` (SSR RPC bridge — browser)
+
+- `createRpcClient<Api>(transport): RpcClient<Api>` — dependency-free proxy; `Api` is a **type-only** import
+- `serverActionTransport(action)`, `httpTransport({ endpoint, fetch?, headers? })`
+- `ApiError` (for `instanceof` after rehydration), `isRpcErrorShape`, `isRpcResponse`, types `Transport`, `RpcPerCall`, `RpcClient`
+
 ### `@developerEhsan/api-client/codegen` (Node only)
 
 `generate(options)`, `validate(input)`, `diff(input, output)`,
-`parseOpenApi(doc)`, `emitTypes(ast, opts?)`, `emitModules(ast, opts?)`
+`parseOpenApi(doc)`, `emitTypes(ast, opts?)`, `emitModules(ast, opts?)`,
+`emitRpcModules(ast, opts?)` (paths-stripped descriptor for the bridge).
+`generate` emits `api.types.ts`, `api.modules.ts`, `api.rpc.ts`, and `api.schema.hash`.
 
 ### `@developerEhsan/api-client/testing`
 
@@ -1167,7 +1373,7 @@ type `HttpAdapter`
 
 ---
 
-## 26. Troubleshooting & FAQ
+## 27. Troubleshooting & FAQ
 
 **`api.myModule.myMethod is not a function`**
 You called a method you did not declare in `defineModule`. The runtime methods
@@ -1214,3 +1420,31 @@ pnpm -r test        # vitest
 
 Monorepo layout: `packages/core` (runtime), `packages/cli` (codegen),
 `packages/tanstack-query` (framework integrations).
+
+---
+
+## 28. Roadmap (planned features)
+
+These are planned or under consideration — not yet shipped. Contributions and
+feedback welcome.
+
+- **`extends: 'auto'` auto-modules from the runtime schema** — build module
+  methods directly from a runtime-fetched OpenAPI document (today auto-modules
+  come from the build-time codegen descriptor; the runtime path is stubbed).
+- **Batching over the RPC bridge** — coalesce multiple `api.*.*()` calls made in
+  the same tick into a single round-trip, with per-sub-call allowlist/authorize.
+- **Streaming / async-iterable responses** — first-class support for
+  `text/event-stream` and chunked responses through the pipeline and the bridge.
+- **Built-in rate limiter** — a ready-to-use limiter for `onRequest` (per-IP /
+  per-session), instead of only the hook point.
+- **Richer per-module method-name autocomplete in `config.modules`** — close the
+  one remaining inference gap so the plain-object form matches the definer form.
+- **First-party TanStack Start & Remix adapters** — thin glue on top of the
+  generic HTTP transport, mirroring the Next.js Server Action helper.
+- **OpenAPI 3.1 & webhooks** — expand the parser beyond 3.0.x.
+- **GraphQL transport** — an alternative adapter for GraphQL backends behind the
+  same module/method surface.
+- **Response caching persistence** — pluggable stores (IndexedDB, Redis) beyond
+  the in-memory LRU.
+- **Codegen: React Query hooks emission** — optionally emit `useXxx` hooks in
+  addition to the option factories.

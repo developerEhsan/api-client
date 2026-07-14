@@ -3,14 +3,37 @@
   "version": "0.0.0",
   "private": true,
   "description": "Typed, modular, universal API client factory for TypeScript applications",
+  "license": "MIT",
+  "author": "EHSAN <ehsan@platas.io>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/developerEhsan/api-client.git"
+  },
+  "homepage": "https://github.com/developerEhsan/api-client#readme",
+  "bugs": {
+    "url": "https://github.com/developerEhsan/api-client/issues"
+  },
   "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint"
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:publish": "pnpm build && changeset publish"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"]
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@changesets/changelog-github": "^0.5.0",
+    "@changesets/cli": "^2.27.9",
     "@types/node": "^26.1.1",
     "tsup": "^8.3.0",
     "typescript": "^5.6.0",

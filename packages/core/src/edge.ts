@@ -5,4 +5,4 @@
  * not re-exported — edge runtimes have no Node http stack, so `createClient`
  * falls back to the fetch adapter automatically (see environment/edgeSafe.ts).
  */
-export * from './index'
+export * from './index';

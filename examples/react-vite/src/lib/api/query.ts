@@ -11,9 +11,9 @@
  * pipeline (cache, dedup, retry, auth). Query keys are stable & hierarchical:
  *   ['developerEhsan', 'pet', 'findPetsByStatus', params]
  */
-import { createQueryIntegration } from "@developerEhsan/api-client-query/react";
-import { api } from "./api.config";
-import { generatedModules } from "./types/generated/api.modules";
+import { createQueryIntegration } from '@developerEhsan/api-client-query/react';
+import { api } from './api.config';
+import { generatedModules } from './types/generated/api.modules';
 
 // Fully typed end-to-end — no cast. Passing the typed `api` plus the generated
 // (`as const`) descriptor map lets the integration infer, per method, the input

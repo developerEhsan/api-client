@@ -1,0 +1,44 @@
+name: Bug report
+description: Report a problem with @developerEhsan/api-client
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug! Please fill out the sections below.
+  - type: input
+    id: package
+    attributes:
+      label: Package & version
+      placeholder: "@developerEhsan/api-client@0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Steps or a minimal repro (link to a repo/StackBlitz if possible).
+      placeholder: |
+        1. Configure client with ...
+        2. Call api.module.method(...)
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Runtime (Node/Edge/browser), Node version, bundler, framework.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / error output
+      render: shell

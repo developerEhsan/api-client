@@ -3,8 +3,8 @@
  * Nothing library-specific here except `useEventLog`, which subscribes to the
  * client's event emitter (`api.on(...)`).
  */
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../lib/api/api.config";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '../lib/api/api.config';
 
 export function Panel({
   title,
@@ -27,7 +27,7 @@ export function Panel({
 }
 
 export function Button(props: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <button type="button" {...props} className={`btn ${props.className ?? ""}`} />;
+  return <button type="button" {...props} className={`btn ${props.className ?? ''}`} />;
 }
 
 export function StatusBadge({ status }: { status?: string }) {
@@ -39,13 +39,13 @@ export function Spinner() {
   return <span className="spinner" aria-label="loading" />;
 }
 
-export type LogLine = { id: number; kind: "info" | "req" | "res" | "err"; text: string };
+export type LogLine = { id: number; kind: 'info' | 'req' | 'res' | 'err'; text: string };
 
 /** A simple append-only log with a helper to push lines. */
 export function useLog() {
   const [lines, setLines] = useState<LogLine[]>([]);
   const idRef = useRef(0);
-  const push = useCallback((kind: LogLine["kind"], text: string) => {
+  const push = useCallback((kind: LogLine['kind'], text: string) => {
     setLines((prev) => [...prev.slice(-80), { id: idRef.current++, kind, text }]);
   }, []);
   const clear = useCallback(() => setLines([]), []);
@@ -55,7 +55,7 @@ export function useLog() {
 export function LogView({ lines }: { lines: LogLine[] }) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
+    endRef.current?.scrollIntoView({ block: 'end' });
   }, [lines]);
   return (
     <div className="log">
@@ -80,23 +80,23 @@ export function useEventLog(enabled: boolean) {
     if (!enabled) return;
     const onReq = (p: unknown) => {
       const r = p as { method: string; url: string };
-      push("req", `→ ${r.method} ${r.url}`);
+      push('req', `→ ${r.method} ${r.url}`);
     };
     const onRes = (p: unknown) => {
       const r = p as { status: number; fromCache?: boolean };
-      push("res", `← ${r.status}${r.fromCache ? " (from cache)" : ""}`);
+      push('res', `← ${r.status}${r.fromCache ? ' (from cache)' : ''}`);
     };
     const onErr = (p: unknown) => {
       const e = p as { name: string; status?: number; message: string };
-      push("err", `✖ ${e.name}${e.status ? ` ${e.status}` : ""}: ${e.message}`);
+      push('err', `✖ ${e.name}${e.status ? ` ${e.status}` : ''}: ${e.message}`);
     };
-    api.on("request", onReq);
-    api.on("response", onRes);
-    api.on("error", onErr);
+    api.on('request', onReq);
+    api.on('response', onRes);
+    api.on('error', onErr);
     return () => {
-      api.off("request", onReq);
-      api.off("response", onRes);
-      api.off("error", onErr);
+      api.off('request', onReq);
+      api.off('response', onRes);
+      api.off('error', onErr);
     };
   }, [enabled, push]);
   return { lines, clear, push };

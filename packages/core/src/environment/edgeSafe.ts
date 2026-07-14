@@ -1,8 +1,8 @@
-import type { DetectedEnvironment } from '../types/environment.types'
-import { ConfigurationError } from '../errors/ConfigurationError'
+import { ConfigurationError } from '../errors/ConfigurationError';
+import type { DetectedEnvironment } from '../types/environment.types';
 
 /** HTTP adapter identifiers supported by the client. */
-export type AdapterName = 'axios' | 'fetch'
+export type AdapterName = 'axios' | 'fetch';
 
 /**
  * Resolves the effective HTTP adapter for the detected environment.
@@ -10,17 +10,14 @@ export type AdapterName = 'axios' | 'fetch'
  * Per spec R1: when the runtime cannot support Axios (e.g. edge runtimes),
  * `'axios'` requests are downgraded to `'fetch'` with a `console.warn`.
  */
-export function resolveAdapterName(
-  requested: AdapterName,
-  env: DetectedEnvironment,
-): AdapterName {
+export function resolveAdapterName(requested: AdapterName, env: DetectedEnvironment): AdapterName {
   if (requested === 'axios' && !env.capabilities.supportsAxios) {
     console.warn(
       `[@developerEhsan/api-client] Axios adapter is not supported on the "${env.environment}" runtime; falling back to the fetch adapter.`,
-    )
-    return 'fetch'
+    );
+    return 'fetch';
   }
-  return requested
+  return requested;
 }
 
 /**
@@ -31,6 +28,6 @@ export function assertFetchAvailable(env: DetectedEnvironment): void {
   if (!env.capabilities.hasFetch) {
     throw new ConfigurationError(
       `The fetch adapter requires a global \`fetch\`, which is unavailable on the "${env.environment}" runtime. Provide a fetch polyfill or use the axios adapter.`,
-    )
+    );
   }
 }
