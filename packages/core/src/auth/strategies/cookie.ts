@@ -4,8 +4,8 @@
  * `withCredentials: true` (axios). The browser manages the cookie itself, so no
  * token getter is required (spec A10).
  */
-import type { AuthContribution } from '../../types/auth.types'
+import type { AuthContribution } from '../../types/auth.types';
 
 export function applyCookie(): Partial<AuthContribution> {
-  return { cookie: true }
+  return { cookie: true };
 }

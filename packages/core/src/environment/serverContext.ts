@@ -9,50 +9,50 @@
  */
 
 interface NextHeaders {
-  get(name: string): string | null
+  get(name: string): string | null;
 }
 interface NextCookieValue {
-  value: string
+  value: string;
 }
 interface NextCookies {
-  get(name: string): NextCookieValue | undefined
+  get(name: string): NextCookieValue | undefined;
 }
 interface NextHeadersModule {
-  headers: () => NextHeaders | Promise<NextHeaders>
-  cookies: () => NextCookies | Promise<NextCookies>
+  headers: () => NextHeaders | Promise<NextHeaders>;
+  cookies: () => NextCookies | Promise<NextCookies>;
 }
 
 async function loadNextHeaders(): Promise<NextHeadersModule | null> {
   try {
     // Non-literal specifier keeps bundlers from hard-resolving an optional dep.
-    const specifier = 'next/headers'
-    return (await import(/* @vite-ignore */ specifier)) as unknown as NextHeadersModule
+    const specifier = 'next/headers';
+    return (await import(/* @vite-ignore */ specifier)) as unknown as NextHeadersModule;
   } catch {
-    return null
+    return null;
   }
 }
 
 /** Read a request header on the server, or `undefined` outside a Next.js request. */
 export async function readServerHeader(name: string): Promise<string | undefined> {
-  const mod = await loadNextHeaders()
-  if (!mod) return undefined
+  const mod = await loadNextHeaders();
+  if (!mod) return undefined;
   try {
-    const store = await mod.headers()
-    return store.get(name) ?? undefined
+    const store = await mod.headers();
+    return store.get(name) ?? undefined;
   } catch {
-    return undefined
+    return undefined;
   }
 }
 
 /** Read a request cookie on the server, or `undefined` outside a Next.js request. */
 export async function readServerCookie(name: string): Promise<string | undefined> {
-  const mod = await loadNextHeaders()
-  if (!mod) return undefined
+  const mod = await loadNextHeaders();
+  if (!mod) return undefined;
   try {
-    const store = await mod.cookies()
-    return store.get(name)?.value ?? undefined
+    const store = await mod.cookies();
+    return store.get(name)?.value ?? undefined;
   } catch {
-    return undefined
+    return undefined;
   }
 }
 
@@ -60,18 +60,14 @@ export async function readServerCookie(name: string): Promise<string | undefined
  * Build a server-safe `getTenantId` that reads the tenant from a request header
  * (default `x-tenant-id`). Use as `tenancy.getTenantId` in RSC configs.
  */
-export function serverTenantResolver(
-  headerName = 'x-tenant-id',
-): () => Promise<string> {
-  return async () => (await readServerHeader(headerName)) ?? ''
+export function serverTenantResolver(headerName = 'x-tenant-id'): () => Promise<string> {
+  return async () => (await readServerHeader(headerName)) ?? '';
 }
 
 /**
  * Build a server-safe bearer `getToken` that reads an access token from a
  * cookie (default `access_token`). Use as `auth.getToken` in RSC configs.
  */
-export function serverTokenFromCookie(
-  cookieName = 'access_token',
-): () => Promise<string | null> {
-  return async () => (await readServerCookie(cookieName)) ?? null
+export function serverTokenFromCookie(cookieName = 'access_token'): () => Promise<string | null> {
+  return async () => (await readServerCookie(cookieName)) ?? null;
 }

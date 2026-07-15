@@ -11,15 +11,15 @@
     "typecheck:js": "tsc -p tsconfig.jscheck.json"
   },
   "dependencies": {
-    "@developerEhsan/api-client": "workspace:*",
-    "@developerEhsan/api-client-query": "workspace:*",
+    "@developerehsan/api-client": "workspace:*",
+    "@developerehsan/api-client-query": "workspace:*",
     "@tanstack/react-query": "^5.101.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
-    "@developerEhsan/api-client-cli": "workspace:*",
+    "@developerehsan/api-client-cli": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.3",
     "@types/babel__core": "^7.20.5",
     "@types/node": "^24.13.2",

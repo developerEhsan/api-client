@@ -1,9 +1,28 @@
 {
-  "name": "@developerEhsan/api-client",
+  "name": "@developerehsan/api-client",
   "version": "0.1.0",
   "description": "Typed, modular, universal API client factory",
+  "license": "MIT",
+  "author": "EHSAN <ehsanshahid787@gmail.com>",
+  "homepage": "https://github.com/developerEhsan/api-client#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/developerEhsan/api-client.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/developerEhsan/api-client/issues"
+  },
+  "keywords": ["api-client", "typescript", "openapi", "codegen", "fetch", "axios", "ssr", "rpc"],
   "type": "module",
   "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "files": ["dist"],
   "exports": {
     ".": {
@@ -23,6 +42,20 @@
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.js",
       "require": "./dist/testing.cjs"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "edge-light": "./dist/server.js",
+      "node": "./dist/server.js",
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "browser": "./dist/browser.js",
+      "edge-light": "./dist/browser.js",
+      "import": "./dist/browser.js",
+      "require": "./dist/browser.cjs"
     },
     "./package.json": "./package.json"
   },

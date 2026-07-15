@@ -10,20 +10,20 @@
  * marked with TODOs where they plug in.
  */
 
-import type { ApiRequest, ApiResponse } from '../types/http.types'
-import type { LifecycleHooks, ResolvedRequestConfig } from '../types/config.types'
-import type { ModuleRequestSpec } from '../types/module.types'
-import type { HttpAdapter } from './adapters/adapterInterface'
-import type { ApiError } from '../errors/ApiError'
-import type { ClassifierInput } from '../errors/errorClassifier'
-import { TimeoutError } from '../errors/TimeoutError'
-import { buildUrl } from '../utilities/urlBuilder'
+import type { ApiError } from '../errors/ApiError';
+import { TimeoutError } from '../errors/TimeoutError';
+import type { ClassifierInput } from '../errors/errorClassifier';
+import type { LifecycleHooks, ResolvedRequestConfig } from '../types/config.types';
+import type { ApiRequest, ApiResponse } from '../types/http.types';
+import type { ModuleRequestSpec } from '../types/module.types';
+import { buildUrl } from '../utilities/urlBuilder';
+import type { HttpAdapter } from './adapters/adapterInterface';
 
 /** Collaborators the pipeline depends on. Injected so it stays pure & testable. */
 export interface PipelineDeps {
-  adapter: HttpAdapter
-  hooks?: LifecycleHooks
-  classifyError: (input: ClassifierInput) => ApiError
+  adapter: HttpAdapter;
+  hooks?: LifecycleHooks;
+  classifyError: (input: ClassifierInput) => ApiError;
 }
 
 /**
@@ -31,23 +31,23 @@ export interface PipelineDeps {
  * {@link ResolvedRequestConfig.safeMode} is enabled.
  */
 export interface SafeModeError {
-  success: false
-  error: ApiError
+  success: false;
+  error: ApiError;
 }
 
 /** A pipeline outcome: the response envelope, or a safe-mode error wrapper. */
-export type PipelineResult<T> = ApiResponse<T> | SafeModeError
+export type PipelineResult<T> = ApiResponse<T> | SafeModeError;
 
 export interface Pipeline {
   execute<T>(
     spec: ModuleRequestSpec,
     resolvedConfig: ResolvedRequestConfig,
-  ): Promise<PipelineResult<T>>
+  ): Promise<PipelineResult<T>>;
 }
 
 /** True for a successful HTTP status (2xx). */
 function isSuccess(status: number): boolean {
-  return status >= 200 && status < 300
+  return status >= 200 && status < 300;
 }
 
 /**
@@ -55,7 +55,7 @@ function isSuccess(status: number): boolean {
  * lifecycle for one request.
  */
 export function createPipeline(deps: PipelineDeps): Pipeline {
-  const { adapter, hooks, classifyError } = deps
+  const { adapter, hooks, classifyError } = deps;
 
   async function execute<T>(
     spec: ModuleRequestSpec,
@@ -73,7 +73,7 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       path: spec.path,
       pathParams: spec.pathParams,
       query: spec.query,
-    })
+    });
 
     let request: ApiRequest = {
       url,
@@ -81,20 +81,20 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
       headers: { ...resolvedConfig.headers },
       responseType: resolvedConfig.responseType,
       timeout: resolvedConfig.timeout,
-    }
-    if (spec.body !== undefined) request.body = spec.body
-    if (spec.query !== undefined) request.query = spec.query
-    if (spec.pathParams !== undefined) request.pathParams = spec.pathParams
-    if (resolvedConfig.tenantId !== undefined) request.tenantId = resolvedConfig.tenantId
+    };
+    if (spec.body !== undefined) request.body = spec.body;
+    if (spec.query !== undefined) request.query = spec.query;
+    if (spec.pathParams !== undefined) request.pathParams = spec.pathParams;
+    if (resolvedConfig.tenantId !== undefined) request.tenantId = resolvedConfig.tenantId;
 
     // Step 9: onRequest hook — may rewrite the outgoing request.
     if (hooks?.onRequest) {
-      request = await hooks.onRequest(request)
+      request = await hooks.onRequest(request);
     }
 
     try {
       // Step 10-11: dispatch through the adapter with timeout enforcement.
-      const adapterResponse = await dispatch(request, resolvedConfig)
+      const adapterResponse = await dispatch(request, resolvedConfig);
 
       // Step 13: classify non-2xx into a typed error.
       if (!isSuccess(adapterResponse.status)) {
@@ -105,37 +105,37 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
           headers: adapterResponse.headers,
           data: adapterResponse.data,
           request,
-        })
-        return await fail(error, resolvedConfig)
+        });
+        return await fail(error, resolvedConfig);
       }
 
       // Step 14: build the response envelope. 204/empty bodies surface as null.
-      const data = (adapterResponse.data ?? null) as T
+      const data = (adapterResponse.data ?? null) as T;
       let response: ApiResponse<T> = {
         data,
         status: adapterResponse.status,
         statusText: adapterResponse.statusText,
         headers: adapterResponse.headers,
         fromCache: false,
-      }
+      };
 
       // TODO(Phase 4): schema validation of the response body.
       // TODO(Phase 2): cache write on success.
 
       // Step 18: onResponse hook — may transform the envelope.
       if (hooks?.onResponse) {
-        response = await hooks.onResponse<T>(response)
+        response = await hooks.onResponse<T>(response);
       }
 
-      return response
+      return response;
     } catch (caught) {
       // Typed errors (e.g. TimeoutError from dispatch) pass through; thrown
       // transport failures are classified as network failures via the
       // injected classifier.
       const error = isApiError(caught)
         ? caught
-        : classifyError({ kind: 'network', cause: caught, request })
-      return await fail(error, resolvedConfig)
+        : classifyError({ kind: 'network', cause: caught, request });
+      return await fail(error, resolvedConfig);
     }
   }
 
@@ -147,9 +147,9 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     error: ApiError,
     resolvedConfig: ResolvedRequestConfig,
   ): Promise<PipelineResult<T>> {
-    if (hooks?.onError) await hooks.onError(error)
-    if (resolvedConfig.safeMode) return { success: false, error }
-    throw error
+    if (hooks?.onError) await hooks.onError(error);
+    if (resolvedConfig.safeMode) return { success: false, error };
+    throw error;
   }
 
   /**
@@ -161,52 +161,48 @@ export function createPipeline(deps: PipelineDeps): Pipeline {
     resolvedConfig: ResolvedRequestConfig,
   ): Promise<Awaited<ReturnType<HttpAdapter['send']>>> {
     // TODO(Phase 3): retry loop wraps this dispatch (RetryConfig/backoff).
-    const timeoutMs = resolvedConfig.timeout
-    const controller = new AbortController()
-    let timedOut = false
+    const timeoutMs = resolvedConfig.timeout;
+    const controller = new AbortController();
+    let timedOut = false;
 
-    const external = resolvedConfig.signal
-    const onExternalAbort = (): void => controller.abort()
+    const external = resolvedConfig.signal;
+    const onExternalAbort = (): void => controller.abort();
     if (external) {
-      if (external.aborted) controller.abort()
-      else external.addEventListener('abort', onExternalAbort, { once: true })
+      if (external.aborted) controller.abort();
+      else external.addEventListener('abort', onExternalAbort, { once: true });
     }
 
     const timer: ReturnType<typeof setTimeout> | undefined =
       timeoutMs > 0
         ? setTimeout(() => {
-            timedOut = true
-            controller.abort()
+            timedOut = true;
+            controller.abort();
           }, timeoutMs)
-        : undefined
+        : undefined;
 
-    const dispatched: ApiRequest = { ...request, signal: controller.signal }
+    const dispatched: ApiRequest = { ...request, signal: controller.signal };
 
     try {
-      return await adapter.send(dispatched)
+      return await adapter.send(dispatched);
     } catch (caught) {
       if (timedOut) {
         throw new TimeoutError({
           message: `Request timed out after ${timeoutMs}ms`,
           request,
           timeoutMs,
-        })
+        });
       }
-      throw caught
+      throw caught;
     } finally {
-      if (timer !== undefined) clearTimeout(timer)
-      if (external) external.removeEventListener('abort', onExternalAbort)
+      if (timer !== undefined) clearTimeout(timer);
+      if (external) external.removeEventListener('abort', onExternalAbort);
     }
   }
 
-  return { execute }
+  return { execute };
 }
 
 /** Structural check for an {@link ApiError} without importing the class value. */
 function isApiError(value: unknown): value is ApiError {
-  return (
-    value instanceof Error &&
-    'isRetryable' in value &&
-    'serverError' in value
-  )
+  return value instanceof Error && 'isRetryable' in value && 'serverError' in value;
 }

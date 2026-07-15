@@ -1,0 +1,6 @@
+# Default owners for everything in the repo.
+* @developerEhsan
+
+# CI / release infrastructure.
+/.github/ @developerEhsan
+/.changeset/ @developerEhsan

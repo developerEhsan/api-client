@@ -1,4 +1,4 @@
-# @developerEhsan/api-client — React + Vite demo
+# @developerehsan/api-client — React + Vite demo
 
 A runnable demo showing the library end-to-end against the public
 [Swagger Petstore](https://petstore3.swagger.io) API. It answers the most
@@ -10,7 +10,7 @@ autocompleting client?**
 ```bash
 # from the monorepo root
 pnpm install
-pnpm --filter @developerEhsan/api-client build   # build the library once
+pnpm --filter @developerehsan/api-client build   # build the library once
 
 # then this example
 cd examples/react-vite
@@ -32,7 +32,7 @@ Codegen produces **two** files from `openapi.json`:
 They are joined in [`src/lib/api/api.config.ts`](src/lib/api/api.config.ts):
 
 ```ts
-import { createTypedClient } from "@developerEhsan/api-client";
+import { createTypedClient } from "@developerehsan/api-client";
 import type { OperationsMap } from "./types/generated/api.types";
 import { generatedModules } from "./types/generated/api.modules";
 
@@ -71,7 +71,7 @@ The spec lives at [`src/lib/api/openapi.json`](src/lib/api/openapi.json).
 Regenerate after it changes:
 
 ```bash
-npx @developerEhsan/api-client generate \
+npx @developerehsan/api-client generate \
   --input ./src/lib/api/openapi.json \
   --output ./src/lib/api/types/generated
 ```

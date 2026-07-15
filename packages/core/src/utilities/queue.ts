@@ -10,35 +10,35 @@ export interface ConcurrencyQueue {
    * aborts before the task starts, it is removed from the queue and the
    * returned promise rejects with an `AbortError` (the task never runs).
    */
-  add<T>(task: () => Promise<T>, opts?: { signal?: AbortSignal }): Promise<T>
+  add<T>(task: () => Promise<T>, opts?: { signal?: AbortSignal }): Promise<T>;
   /** Number of tasks queued but not yet started. */
-  size(): number
+  size(): number;
   /** Number of tasks currently running. */
-  active(): number
+  active(): number;
 }
 
 /** Options for {@link createQueue}. */
 export interface QueueOptions {
   /** Maximum tasks running at once. Default: 10. */
-  concurrency?: number
+  concurrency?: number;
   /** Scheduling order for waiting tasks. Default: `'fifo'`. */
-  priority?: 'fifo' | 'lifo'
+  priority?: 'fifo' | 'lifo';
 }
 
 interface QueuedItem {
-  run: () => void
-  signal?: AbortSignal
-  onAbort?: () => void
+  run: () => void;
+  signal?: AbortSignal;
+  onAbort?: () => void;
 }
 
 /** Build an `AbortError`, preferring `DOMException` when available (X5). */
 function makeAbortError(): Error {
   if (typeof DOMException === 'function') {
-    return new DOMException('The operation was aborted.', 'AbortError')
+    return new DOMException('The operation was aborted.', 'AbortError');
   }
-  const err = new Error('The operation was aborted.')
-  err.name = 'AbortError'
-  return err
+  const err = new Error('The operation was aborted.');
+  err.name = 'AbortError';
+  return err;
 }
 
 /**
@@ -46,30 +46,30 @@ function makeAbortError(): Error {
  * simultaneously, dispatching waiting tasks in FIFO or LIFO order.
  */
 export function createQueue(config?: QueueOptions): ConcurrencyQueue {
-  const concurrency = Math.max(1, config?.concurrency ?? 10)
-  const priority = config?.priority ?? 'fifo'
+  const concurrency = Math.max(1, config?.concurrency ?? 10);
+  const priority = config?.priority ?? 'fifo';
 
-  const waiting: QueuedItem[] = []
-  let running = 0
+  const waiting: QueuedItem[] = [];
+  let running = 0;
 
   function dispatch(): void {
     while (running < concurrency && waiting.length > 0) {
-      const item = priority === 'lifo' ? waiting.pop() : waiting.shift()
-      if (item === undefined) return
+      const item = priority === 'lifo' ? waiting.pop() : waiting.shift();
+      if (item === undefined) return;
       if (item.signal !== undefined && item.onAbort !== undefined) {
-        item.signal.removeEventListener('abort', item.onAbort)
+        item.signal.removeEventListener('abort', item.onAbort);
       }
-      running++
-      item.run()
+      running++;
+      item.run();
     }
   }
 
   function add<T>(task: () => Promise<T>, opts?: { signal?: AbortSignal }): Promise<T> {
-    const signal = opts?.signal
+    const signal = opts?.signal;
     return new Promise<T>((resolve, reject) => {
       if (signal?.aborted) {
-        reject(makeAbortError())
-        return
+        reject(makeAbortError());
+        return;
       }
 
       const item: QueuedItem = {
@@ -78,34 +78,34 @@ export function createQueue(config?: QueueOptions): ConcurrencyQueue {
             .then(task)
             .then(resolve, reject)
             .finally(() => {
-              running--
-              dispatch()
-            })
+              running--;
+              dispatch();
+            });
         },
         signal,
-      }
+      };
 
       if (signal !== undefined) {
         const onAbort = (): void => {
-          const idx = waiting.indexOf(item)
+          const idx = waiting.indexOf(item);
           if (idx !== -1) {
-            waiting.splice(idx, 1)
-            signal.removeEventListener('abort', onAbort)
-            reject(makeAbortError())
+            waiting.splice(idx, 1);
+            signal.removeEventListener('abort', onAbort);
+            reject(makeAbortError());
           }
-        }
-        item.onAbort = onAbort
-        signal.addEventListener('abort', onAbort)
+        };
+        item.onAbort = onAbort;
+        signal.addEventListener('abort', onAbort);
       }
 
-      waiting.push(item)
-      dispatch()
-    })
+      waiting.push(item);
+      dispatch();
+    });
   }
 
   return {
     add,
     size: () => waiting.length,
     active: () => running,
-  }
+  };
 }

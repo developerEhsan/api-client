@@ -1,3 +1,4 @@
+import { ApiError } from '@developerehsan/api-client';
 /**
  * DIRECT CLIENT USAGE
  * -------------------
@@ -10,16 +11,15 @@
  * This section shows: typed query params, typed path params, loading/error
  * states, and typed error handling (ApiError with a real HTTP status).
  */
-import { useCallback, useEffect, useState } from "react";
-import { api } from "../lib/api/api.config";
-import { ApiError } from "@developerEhsan/api-client";
-import type { Pet } from "../lib/api/types/generated/api.types";
-import { Button, Panel, Spinner, StatusBadge } from "../components/ui";
+import { useCallback, useEffect, useState } from 'react';
+import { Button, Panel, Spinner, StatusBadge } from '../components/ui';
+import { api } from '../lib/api/api.config';
+import type { Pet } from '../lib/api/types/generated/api.types';
 
-type Status = "available" | "pending" | "sold";
+type Status = 'available' | 'pending' | 'sold';
 
 export function DirectClientDemo() {
-  const [status, setStatus] = useState<Status>("available");
+  const [status, setStatus] = useState<Status>('available');
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +36,7 @@ export function DirectClientDemo() {
       setPets(result.slice(0, 12));
       setElapsed(Math.round(performance.now() - started));
     } catch (err) {
-      setError(err instanceof ApiError ? `${err.status ?? ""} ${err.message}` : String(err));
+      setError(err instanceof ApiError ? `${err.status ?? ''} ${err.message}` : String(err));
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export function DirectClientDemo() {
       const pet = await api.pet.getPetById({ petId });
       setSelected(pet);
     } catch (err) {
-      setError(err instanceof ApiError ? `${err.status ?? ""} ${err.message}` : String(err));
+      setError(err instanceof ApiError ? `${err.status ?? ''} ${err.message}` : String(err));
     }
   }, []);
 

@@ -2,27 +2,22 @@
  * Runtime environment detection & platform capability types.
  */
 
-export type Environment =
-  | 'browser'
-  | 'node'
-  | 'edge'
-  | 'nextjs-server'
-  | 'nextjs-client'
+export type Environment = 'browser' | 'node' | 'edge' | 'nextjs-server' | 'nextjs-client';
 
 export interface PlatformCapabilities {
   /** Whether the Axios adapter can be used (false on edge runtimes). */
-  supportsAxios: boolean
+  supportsAxios: boolean;
   /** Whether `AsyncLocalStorage` is available (server runtimes). */
-  supportsAsyncLocalStorage: boolean
+  supportsAsyncLocalStorage: boolean;
   /** Whether browser APIs (`window`, `document`, `localStorage`) are present. */
-  hasDom: boolean
+  hasDom: boolean;
   /** Whether the global `fetch` is available. */
-  hasFetch: boolean
+  hasFetch: boolean;
   /** Whether the runtime can access `visibilitychange` events. */
-  hasVisibilityApi: boolean
+  hasVisibilityApi: boolean;
 }
 
 export interface DetectedEnvironment {
-  environment: Environment
-  capabilities: PlatformCapabilities
+  environment: Environment;
+  capabilities: PlatformCapabilities;
 }

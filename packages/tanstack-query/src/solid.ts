@@ -1,5 +1,5 @@
 /**
- * Solid Query (v5) entry point — `@developerEhsan/api-client-query/solid`.
+ * Solid Query (v5) entry point — `@developerehsan/api-client-query/solid`.
  *
  * The generated option objects are consumed directly by `useQuery`,
  * `useMutation`, and `useInfiniteQuery`:
@@ -9,8 +9,8 @@
  *     onSuccess: () => integration.invoices.invalidateQueries(queryClient),
  *   }))
  */
-export { createQueryIntegration } from './core/createIntegration'
-export { moduleKey, methodKey } from './core/queryKeys'
+export { createQueryIntegration } from './core/createIntegration';
+export { moduleKey, methodKey } from './core/queryKeys';
 export type {
   QueryIntegration,
   ModuleIntegration,
@@ -19,4 +19,4 @@ export type {
   ModuleDescriptor,
   QueryKey,
   QueryClientLike,
-} from './core/types'
+} from './core/types';

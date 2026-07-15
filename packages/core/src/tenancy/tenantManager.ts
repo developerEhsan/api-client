@@ -8,14 +8,14 @@
  * upstream by `resolveRequestConfig` (module tenancy overrides global), so this
  * layer only sees the single effective `getTenantId`.
  */
-import { ConfigurationError } from '../errors/ConfigurationError'
-import { getTenantFromContext } from './tenantContext'
+import { ConfigurationError } from '../errors/ConfigurationError';
+import { getTenantFromContext } from './tenantContext';
 
 export interface TenantResolutionInput {
   /** Per-call override (highest precedence). */
-  perCall?: string
+  perCall?: string;
   /** Effective configured resolver (module override already applied). */
-  getTenantId?: () => string | Promise<string>
+  getTenantId?: () => string | Promise<string>;
 }
 
 /**
@@ -26,26 +26,24 @@ export interface TenantResolutionInput {
  * @returns the tenant id, or `undefined` when none is configured/resolved
  * (tenant-agnostic endpoints send no tenant header, spec T1).
  */
-export async function resolveTenantId(
-  input: TenantResolutionInput,
-): Promise<string | undefined> {
-  if (input.perCall !== undefined && input.perCall !== '') return input.perCall
+export async function resolveTenantId(input: TenantResolutionInput): Promise<string | undefined> {
+  if (input.perCall !== undefined && input.perCall !== '') return input.perCall;
 
   if (typeof input.getTenantId === 'function') {
-    let resolved: string
+    let resolved: string;
     try {
-      resolved = await input.getTenantId()
+      resolved = await input.getTenantId();
     } catch (cause) {
       throw new ConfigurationError(
         'tenancy.getTenantId() threw while resolving the tenant id.',
         cause,
-      )
+      );
     }
     // A non-empty resolver result wins; an empty string means "unresolved"
     // (e.g. serverTenantResolver found no header) and falls through to context.
-    if (resolved !== '') return resolved
+    if (resolved !== '') return resolved;
   }
 
   // Fall back to any ambient server-side tenant context.
-  return getTenantFromContext()
+  return getTenantFromContext();
 }

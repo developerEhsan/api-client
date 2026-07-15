@@ -6,32 +6,32 @@
  * both `baseURL` and `activeEnvironment` are supplied).
  */
 
+import { ConfigurationError } from '../errors/ConfigurationError';
+import type { AuthConfig } from '../types/auth.types';
 import type {
   GlobalConfig,
   ModuleConfig,
   PerCallConfig,
   ResolvedRequestConfig,
-} from '../types/config.types'
-import type { AuthConfig } from '../types/auth.types'
-import { ConfigurationError } from '../errors/ConfigurationError'
+} from '../types/config.types';
 
 /** True for plain object literals (not arrays, null, or class instances). */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null) return false
-  const proto: unknown = Object.getPrototypeOf(value)
-  return proto === Object.prototype || proto === null
+  if (typeof value !== 'object' || value === null) return false;
+  const proto: unknown = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
 }
 
 /** Concatenate two arrays and drop duplicate primitives (object identity kept). */
 function mergeArrays(a: readonly unknown[], b: readonly unknown[]): unknown[] {
-  const out: unknown[] = []
-  const seen = new Set<unknown>()
+  const out: unknown[] = [];
+  const seen = new Set<unknown>();
   for (const item of [...a, ...b]) {
-    if (seen.has(item)) continue
-    seen.add(item)
-    out.push(item)
+    if (seen.has(item)) continue;
+    seen.add(item);
+    out.push(item);
   }
-  return out
+  return out;
 }
 
 /**
@@ -40,39 +40,37 @@ function mergeArrays(a: readonly unknown[], b: readonly unknown[]): unknown[] {
  * `undefined` values never overwrite an existing value.
  */
 export function deepMerge<T>(...layers: Partial<T>[]): T {
-  const result: Record<string, unknown> = {}
+  const result: Record<string, unknown> = {};
   for (const layer of layers) {
-    if (!isPlainObject(layer)) continue
+    if (!isPlainObject(layer)) continue;
     for (const [key, value] of Object.entries(layer)) {
-      if (value === undefined) continue
+      if (value === undefined) continue;
       // Guard against prototype pollution from untrusted (e.g. JSON.parse'd)
       // config objects.
-      if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
-      const existing = result[key]
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+      const existing = result[key];
       if (Array.isArray(existing) && Array.isArray(value)) {
-        result[key] = mergeArrays(existing, value)
+        result[key] = mergeArrays(existing, value);
       } else if (isPlainObject(existing) && isPlainObject(value)) {
-        result[key] = deepMerge(existing, value)
+        result[key] = deepMerge(existing, value);
       } else {
-        result[key] = value
+        result[key] = value;
       }
     }
   }
-  return result as T
+  return result as T;
 }
 
 /** Merge header maps across layers; later layers win per-key. */
-function mergeHeaders(
-  ...maps: (Record<string, string> | undefined)[]
-): Record<string, string> {
-  const out: Record<string, string> = {}
+function mergeHeaders(...maps: (Record<string, string> | undefined)[]): Record<string, string> {
+  const out: Record<string, string> = {};
   for (const map of maps) {
-    if (!map) continue
+    if (!map) continue;
     for (const [key, value] of Object.entries(map)) {
-      if (value !== undefined) out[key] = value
+      if (value !== undefined) out[key] = value;
     }
   }
-  return out
+  return out;
 }
 
 /**
@@ -83,23 +81,23 @@ function mergeHeaders(
  * - `module.baseURL` overrides the global result when present.
  */
 function resolveBaseURL(global: GlobalConfig, moduleBaseURL?: string): string {
-  let base = global.baseURL
+  let base = global.baseURL;
   if (global.activeEnvironment !== undefined) {
-    const env = global.environments
-    const resolved = env?.[global.activeEnvironment]
+    const env = global.environments;
+    const resolved = env?.[global.activeEnvironment];
     if (resolved === undefined) {
       throw new ConfigurationError(
         `activeEnvironment "${global.activeEnvironment}" is not present in the environments map`,
-      )
+      );
     }
     if (global.baseURL) {
       console.warn(
-        `[@developerEhsan/api-client] Both "baseURL" and "activeEnvironment" are set; using activeEnvironment "${global.activeEnvironment}".`,
-      )
+        `[@developerehsan/api-client] Both "baseURL" and "activeEnvironment" are set; using activeEnvironment "${global.activeEnvironment}".`,
+      );
     }
-    base = resolved
+    base = resolved;
   }
-  return moduleBaseURL ?? base
+  return moduleBaseURL ?? base;
 }
 
 /**
@@ -111,30 +109,25 @@ export function resolveRequestConfig(
   moduleCfg: ModuleConfig | undefined,
   perCall: PerCallConfig | undefined,
 ): ResolvedRequestConfig {
-  const baseURL = resolveBaseURL(global, moduleCfg?.baseURL)
+  const baseURL = resolveBaseURL(global, moduleCfg?.baseURL);
 
-  const timeout =
-    perCall?.timeout ?? moduleCfg?.timeout ?? global.http?.timeout ?? 10000
+  const timeout = perCall?.timeout ?? moduleCfg?.timeout ?? global.http?.timeout ?? 10000;
 
-  const headers = mergeHeaders(
-    global.http?.headers,
-    moduleCfg?.headers,
-    perCall?.headers,
-  )
+  const headers = mergeHeaders(global.http?.headers, moduleCfg?.headers, perCall?.headers);
 
   const auth = deepMerge<AuthConfig>(
     { strategy: 'none' } as AuthConfig,
     (global.auth ?? {}) as Partial<AuthConfig>,
     (moduleCfg?.auth ?? {}) as Partial<AuthConfig>,
-  )
+  );
 
   const cache = deepMerge<ResolvedRequestConfig['cache']>(
     { enabled: true, ttl: 60000, strategy: 'cache-first', maxSize: 500 },
     global.cache ?? {},
     moduleCfg?.cache ?? {},
     perCall?.cache ?? {},
-  )
-  if (perCall?.cache?.bust !== undefined) cache.bust = perCall.cache.bust
+  );
+  if (perCall?.cache?.bust !== undefined) cache.bust = perCall.cache.bust;
 
   const retry = deepMerge<ResolvedRequestConfig['retry']>(
     {
@@ -147,18 +140,15 @@ export function resolveRequestConfig(
     global.http?.retry ?? {},
     moduleCfg?.retry ?? {},
     perCall?.retry ?? {},
-  )
+  );
 
   const tenancy = deepMerge(
     { headerName: 'X-Tenant-ID' },
     global.tenancy ?? {},
     moduleCfg?.tenancy ?? {},
-  )
+  );
 
-  const validation = deepMerge(
-    global.openapi?.validation ?? {},
-    moduleCfg?.validation ?? {},
-  )
+  const validation = deepMerge(global.openapi?.validation ?? {}, moduleCfg?.validation ?? {});
 
   const resolved: ResolvedRequestConfig = {
     baseURL,
@@ -173,10 +163,10 @@ export function resolveRequestConfig(
     skipDedup: perCall?.skipDedup ?? false,
     responseType: perCall?.responseType ?? 'json',
     safeMode: global.safeMode ?? false,
-  }
+  };
 
-  if (perCall?.signal !== undefined) resolved.signal = perCall.signal
-  if (perCall?.tenantId !== undefined) resolved.tenantId = perCall.tenantId
+  if (perCall?.signal !== undefined) resolved.signal = perCall.signal;
+  if (perCall?.tenantId !== undefined) resolved.tenantId = perCall.tenantId;
 
-  return resolved
+  return resolved;
 }

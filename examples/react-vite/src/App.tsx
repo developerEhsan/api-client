@@ -1,5 +1,5 @@
 /**
- * @developerEhsan/api-client — live demo (Swagger Petstore).
+ * @developerehsan/api-client — live demo (Swagger Petstore).
  *
  * Three sections:
  *   1. Direct typed client  — call `api.*` straight from components.
@@ -8,29 +8,29 @@
  *
  * The client is configured once in src/lib/api/api.config.ts.
  */
-import { useState } from "react";
-import "./App.css";
-import { DirectClientDemo } from "./features/DirectClientDemo";
-import { TanstackDemo } from "./features/TanstackDemo";
-import { FeatureLab } from "./features/FeatureLab";
+import { useState } from 'react';
+import './App.css';
+import { DirectClientDemo } from './features/DirectClientDemo';
+import { FeatureLab } from './features/FeatureLab';
+import { TanstackDemo } from './features/TanstackDemo';
 
-type Tab = "direct" | "tanstack" | "lab";
+type Tab = 'direct' | 'tanstack' | 'lab';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "direct", label: "1 · Direct client" },
-  { id: "tanstack", label: "2 · TanStack Query" },
-  { id: "lab", label: "3 · Feature lab" },
+  { id: 'direct', label: '1 · Direct client' },
+  { id: 'tanstack', label: '2 · TanStack Query' },
+  { id: 'lab', label: '3 · Feature lab' },
 ];
 
 function App() {
-  const [tab, setTab] = useState<Tab>("direct");
+  const [tab, setTab] = useState<Tab>('direct');
 
   return (
     <div className="app">
       <header className="app__header">
-        <h1>@developerEhsan/api-client</h1>
+        <h1>@developerehsan/api-client</h1>
         <p>
-          A typed, modular API client — live against the{" "}
+          A typed, modular API client — live against the{' '}
           <a href="https://petstore3.swagger.io" target="_blank" rel="noreferrer">
             Swagger Petstore
           </a>
@@ -41,7 +41,7 @@ function App() {
             <button
               key={t.id}
               type="button"
-              className={`tab ${tab === t.id ? "tab--active" : ""}`}
+              className={`tab ${tab === t.id ? 'tab--active' : ''}`}
               onClick={() => setTab(t.id)}
             >
               {t.label}
@@ -51,13 +51,13 @@ function App() {
       </header>
 
       <main className="app__main">
-        {tab === "direct" ? <DirectClientDemo /> : null}
-        {tab === "tanstack" ? <TanstackDemo /> : null}
-        {tab === "lab" ? <FeatureLab /> : null}
+        {tab === 'direct' ? <DirectClientDemo /> : null}
+        {tab === 'tanstack' ? <TanstackDemo /> : null}
+        {tab === 'lab' ? <FeatureLab /> : null}
       </main>
 
       <footer className="app__footer">
-        Types &amp; modules generated from <code>openapi.json</code>; wired with{" "}
+        Types &amp; modules generated from <code>openapi.json</code>; wired with{' '}
         <code>createTypedClient&lt;OperationsMap&gt;()(config, generatedModules)</code>.
       </footer>
     </div>

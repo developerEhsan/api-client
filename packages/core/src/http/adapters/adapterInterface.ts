@@ -4,7 +4,7 @@
  * responses into typed errors happens later in the pipeline.
  */
 
-import type { AdapterResponse, ApiRequest } from '../../types/http.types'
+import type { AdapterResponse, ApiRequest } from '../../types/http.types';
 
 /**
  * A pluggable HTTP transport (fetch, axios, or a test double).
@@ -15,8 +15,8 @@ import type { AdapterResponse, ApiRequest } from '../../types/http.types'
  */
 export interface HttpAdapter {
   /** Issue the fully-resolved request and return the raw response envelope. */
-  send(request: ApiRequest): Promise<AdapterResponse>
+  send(request: ApiRequest): Promise<AdapterResponse>;
 }
 
 /** Zero-arg factory that constructs an {@link HttpAdapter}. */
-export type AdapterFactory = () => HttpAdapter
+export type AdapterFactory = () => HttpAdapter;

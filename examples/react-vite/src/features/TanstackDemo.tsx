@@ -1,3 +1,4 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 /**
  * TANSTACK QUERY USAGE
  * --------------------
@@ -12,25 +13,24 @@
  * level and adds retries/timeouts. Query keys are stable so invalidation after
  * a mutation refetches the list automatically.
  */
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { q } from "../lib/api/query";
-import type { Pet } from "../lib/api/types/generated/api.types";
-import { Button, Panel, Spinner, StatusBadge } from "../components/ui";
+import { useState } from 'react';
+import { Button, Panel, Spinner, StatusBadge } from '../components/ui';
+import { q } from '../lib/api/query';
+import type { Pet } from '../lib/api/types/generated/api.types';
 
-type Status = "available" | "pending" | "sold";
+type Status = 'available' | 'pending' | 'sold';
 
 export function TanstackDemo() {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<Status>("available");
-  const [name, setName] = useState("Rex the Demo Dog");
+  const [status, setStatus] = useState<Status>('available');
+  const [name, setName] = useState('Rex the Demo Dog');
 
   // QUERY — typed params in, typed data out.
   const petsQuery = useQuery(q.pet.queryOptions.findPetsByStatus({ status }));
 
   // MUTATION — create a pet, then invalidate the list so it refetches.
   const addPet = useMutation(
-    q.pet.mutationOptions. addPet({
+    q.pet.mutationOptions.addPet({
       onSuccess: () => {
         // Invalidate every 'pet' query for this integration.
         void q.pet.invalidateQueries(queryClient);
@@ -59,29 +59,25 @@ export function TanstackDemo() {
       </div>
 
       <div className="toolbar">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="New pet name"
-        />
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New pet name" />
         <Button
           disabled={addPet.isPending}
           onClick={() =>
             // The mutation's variables are the operation input — here the `body`.
             addPet.mutate({
-              body: { name, photoUrls: [], status: "available" },
+              body: { name, photoUrls: [], status: 'available' },
             })
           }
         >
-          {addPet.isPending ? "Adding…" : "Add pet (addPet)"}
+          {addPet.isPending ? 'Adding…' : 'Add pet (addPet)'}
         </Button>
         {addPet.isSuccess ? <span className="muted">created ✓ (list refetched)</span> : null}
       </div>
 
       {addPet.isError ? (
         <div className="alert">
-          addPet failed: {String((addPet.error as Error).message)} (the public Petstore
-          occasionally 500s on writes — the client retried, then surfaced a typed ApiError)
+          addPet failed: {String((addPet.error as Error).message)} (the public Petstore occasionally
+          500s on writes — the client retried, then surfaced a typed ApiError)
         </div>
       ) : null}
 

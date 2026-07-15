@@ -8,27 +8,27 @@
  */
 
 interface AsyncLocalStorageLike<T> {
-  run<R>(store: T, callback: () => R): R
-  getStore(): T | undefined
+  run<R>(store: T, callback: () => R): R;
+  getStore(): T | undefined;
 }
 
 interface TenantStore {
-  tenantId: string
+  tenantId: string;
 }
 
 // Lazily-resolved AsyncLocalStorage instance (or null when unavailable).
-let alsPromise: Promise<AsyncLocalStorageLike<TenantStore> | null> | null = null
+let alsPromise: Promise<AsyncLocalStorageLike<TenantStore> | null> | null = null;
 
 async function getStorage(): Promise<AsyncLocalStorageLike<TenantStore> | null> {
   if (alsPromise === null) {
     alsPromise = import('node:async_hooks')
       .then((mod) => {
-        const Ctor = mod.AsyncLocalStorage as new () => AsyncLocalStorageLike<TenantStore>
-        return new Ctor()
+        const Ctor = mod.AsyncLocalStorage as new () => AsyncLocalStorageLike<TenantStore>;
+        return new Ctor();
       })
-      .catch(() => null)
+      .catch(() => null);
   }
-  return alsPromise
+  return alsPromise;
 }
 
 /**
@@ -42,18 +42,18 @@ export async function runWithTenant<T>(
   tenantId: string,
   callback: () => T | Promise<T>,
 ): Promise<T> {
-  const als = await getStorage()
-  if (!als) return callback()
-  return als.run({ tenantId }, callback)
+  const als = await getStorage();
+  if (!als) return callback();
+  return als.run({ tenantId }, callback);
 }
 
 /** The tenant id for the current async context, or `undefined` if none/unavailable. */
 export async function getTenantFromContext(): Promise<string | undefined> {
-  const als = await getStorage()
-  return als?.getStore()?.tenantId
+  const als = await getStorage();
+  return als?.getStore()?.tenantId;
 }
 
 /** True when a server-grade AsyncLocalStorage is available in this runtime. */
 export async function hasTenantContext(): Promise<boolean> {
-  return (await getStorage()) !== null
+  return (await getStorage()) !== null;
 }

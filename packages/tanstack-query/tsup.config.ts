@@ -1,4 +1,4 @@
-import { defineConfig } from 'tsup'
+import { defineConfig } from 'tsup';
 
 export default defineConfig({
   entry: {
@@ -16,6 +16,6 @@ export default defineConfig({
     '@tanstack/react-query',
     '@tanstack/vue-query',
     '@tanstack/solid-query',
-    '@developerEhsan/api-client',
+    '@developerehsan/api-client',
   ],
-})
+});
