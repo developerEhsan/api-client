@@ -13,13 +13,7 @@
   "bugs": {
     "url": "https://github.com/developerEhsan/api-client/issues"
   },
-  "keywords": [
-    "api-client",
-    "tanstack-query",
-    "react-query",
-    "vue-query",
-    "solid-query"
-  ],
+  "keywords": ["api-client", "tanstack-query", "react-query", "vue-query", "solid-query"],
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -29,9 +23,7 @@
     "access": "public",
     "provenance": true
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "exports": {
     "./react": {
       "types": "./dist/react.d.ts",

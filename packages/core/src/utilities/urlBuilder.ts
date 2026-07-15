@@ -3,7 +3,7 @@
  * and query serialization. No IO.
  */
 
-import { ConfigurationError } from "../errors/ConfigurationError";
+import { ConfigurationError } from '../errors/ConfigurationError';
 
 /** Input to {@link buildUrl}. */
 export interface BuildUrlInput {
@@ -31,7 +31,7 @@ const PLACEHOLDER = /\{([^{}]+)\}/g;
 function stripTrailingSlashes(str: string): string {
   if (!str) return str;
   let end = str.length - 1;
-  while (end >= 0 && str[end] === "/") {
+  while (end >= 0 && str[end] === '/') {
     end--;
   }
   return str.substring(0, end + 1);
@@ -53,16 +53,13 @@ export function buildUrl(input: BuildUrlInput): string {
     const name = rawName.trim();
     const value = pathParams?.[name];
     if (value === undefined || value === null) {
-      throw new ConfigurationError(
-        `Missing required path parameter "${name}" for path "${path}"`,
-      );
+      throw new ConfigurationError(`Missing required path parameter "${name}" for path "${path}"`);
     }
     return encodeURIComponent(String(value));
   });
   const base = stripTrailingSlashes(baseURL);
   // const base = baseURL.replace(/\/+$/, '');
-  const normalizedPath =
-    substituted.length === 0 ? "" : `/${substituted.replace(/^\/+/, "")}`;
+  const normalizedPath = substituted.length === 0 ? '' : `/${substituted.replace(/^\/+/, '')}`;
 
   const url = `${base}${normalizedPath}`;
   const qs = serializeQuery(query);
@@ -78,14 +75,12 @@ export function buildUrl(input: BuildUrlInput): string {
  * - Keys and values are percent-encoded.
  */
 export function serializeQuery(query?: Record<string, unknown>): string {
-  if (!query) return "";
+  if (!query) return '';
   const parts: string[] = [];
 
   const append = (key: string, value: unknown): void => {
     if (value === undefined || value === null) return;
-    parts.push(
-      `${encodeURIComponent(key)}=${encodeURIComponent(scalarToString(value))}`,
-    );
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(scalarToString(value))}`);
   };
 
   for (const [key, value] of Object.entries(query)) {
@@ -96,19 +91,19 @@ export function serializeQuery(query?: Record<string, unknown>): string {
     }
   }
 
-  return parts.join("&");
+  return parts.join('&');
 }
 
 /** Stringify a scalar query value; objects are JSON-encoded as a fallback. */
 function scalarToString(value: unknown): string {
   switch (typeof value) {
-    case "string":
+    case 'string':
       return value;
-    case "number":
-    case "boolean":
-    case "bigint":
+    case 'number':
+    case 'boolean':
+    case 'bigint':
       return String(value);
     default:
-      return JSON.stringify(value) ?? "";
+      return JSON.stringify(value) ?? '';
   }
 }

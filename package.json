@@ -28,10 +28,7 @@
     "changeset:publish": "pnpm build && changeset publish"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "@biomejs/biome",
-      "esbuild"
-    ]
+    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"]
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -46,7 +43,5 @@
   "directories": {
     "example": "examples"
   },
-  "keywords": [
-    "api-manager"
-  ]
+  "keywords": ["api-manager"]
 }
