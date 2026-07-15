@@ -1,7 +1,7 @@
 /**
  * RPC bridge tests. Each `S#` maps to a threat in the design's security table.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { ApiError } from '../errors/ApiError';
 import { AuthError } from '../errors/AuthError';
 import { createRpcHandler } from './createRpcHandler';
