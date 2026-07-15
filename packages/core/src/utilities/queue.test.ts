@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createQueue } from './queue';
 
 /** Deferred promise helper for controlling task settlement in tests. */
