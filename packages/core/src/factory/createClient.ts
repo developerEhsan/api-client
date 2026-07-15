@@ -259,7 +259,6 @@ export function createClient(config: GlobalConfig): ApiClient {
   // Loaded in the background from openapi.runtimeURL; powers getSchema() and
   // response validation. Never blocks createClient (which stays synchronous).
   const schemaCache = createSchemaCache();
-  let stopSchemaPolling: (() => void) | undefined;
   {
     const oa = currentConfig.openapi;
     const wantsRuntime = oa.mode !== 'codegen' && typeof oa.runtimeURL === 'string';
@@ -274,7 +273,7 @@ export function createClient(config: GlobalConfig): ApiClient {
             ? { onDriftDetected: oa.validation.onDriftDetected }
             : {}),
         };
-        stopSchemaPolling = loader.startPolling(oa.runtimeURL, interval, driftPolicy);
+        loader.startPolling(oa.runtimeURL, interval, driftPolicy);
       }
     }
   }
