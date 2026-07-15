@@ -1,6 +1,6 @@
 {
   "name": "@developerehsan/api-client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Typed, modular, universal API client factory",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
@@ -13,7 +13,16 @@
   "bugs": {
     "url": "https://github.com/developerEhsan/api-client/issues"
   },
-  "keywords": ["api-client", "typescript", "openapi", "codegen", "fetch", "axios", "ssr", "rpc"],
+  "keywords": [
+    "api-client",
+    "typescript",
+    "openapi",
+    "codegen",
+    "fetch",
+    "axios",
+    "ssr",
+    "rpc"
+  ],
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -23,7 +32,9 @@
     "access": "public",
     "provenance": true
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -73,8 +84,12 @@
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
-    "axios": { "optional": true },
-    "zod": { "optional": true }
+    "axios": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "axios": "^1.7.0",
