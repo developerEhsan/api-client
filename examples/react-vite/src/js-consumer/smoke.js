@@ -28,7 +28,7 @@ async function demo() {
   console.log(opts.queryKey);
 
   // @ts-expect-error placeOrder is a POST → mutation only, not a query.
-  q.store.queryOptions.placeOrder;
+  void q.store.queryOptions.placeOrder;
 }
 
 void demo;
