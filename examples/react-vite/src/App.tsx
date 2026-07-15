@@ -1,5 +1,5 @@
 /**
- * @developerEhsan/api-client — live demo (Swagger Petstore).
+ * @developerehsan/api-client — live demo (Swagger Petstore).
  *
  * Three sections:
  *   1. Direct typed client  — call `api.*` straight from components.
@@ -28,7 +28,7 @@ function App() {
   return (
     <div className="app">
       <header className="app__header">
-        <h1>@developerEhsan/api-client</h1>
+        <h1>@developerehsan/api-client</h1>
         <p>
           A typed, modular API client — live against the{' '}
           <a href="https://petstore3.swagger.io" target="_blank" rel="noreferrer">

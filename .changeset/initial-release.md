@@ -1,7 +1,7 @@
 ---
-"@developerEhsan/api-client": minor
-"@developerEhsan/api-client-cli": minor
-"@developerEhsan/api-client-query": minor
+"@developerehsan/api-client": minor
+"@developerehsan/api-client-cli": minor
+"@developerehsan/api-client-query": minor
 ---
 
 Initial public release: typed, modular, universal API client factory with OpenAPI

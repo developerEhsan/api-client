@@ -10,7 +10,7 @@
  *
  * Query keys stay stable & hierarchical: ['developerEhsan', 'pet', 'findPetsByStatus', params].
  */
-import { createQueryIntegration } from '@developerEhsan/api-client-query/react';
+import { createQueryIntegration } from '@developerehsan/api-client-query/react';
 import { api } from './rpc-client';
 import { rpcModules } from './types/generated/api.rpc';
 

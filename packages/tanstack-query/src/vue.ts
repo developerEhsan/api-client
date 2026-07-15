@@ -1,5 +1,5 @@
 /**
- * Vue Query (v5) entry point — `@developerEhsan/api-client-query/vue`.
+ * Vue Query (v5) entry point — `@developerehsan/api-client-query/vue`.
  *
  * The generated option objects are consumed directly by `useQuery`,
  * `useMutation`, and `useInfiniteQuery`:

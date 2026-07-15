@@ -25,7 +25,7 @@ export interface ApiErrorInit {
  *
  * @example
  * ```ts
- * import { ApiError } from '@developerEhsan/api-client'
+ * import { ApiError } from '@developerehsan/api-client'
  *
  * try {
  *   await api.pet.getPetById({ petId: 1 })

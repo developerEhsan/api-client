@@ -11,13 +11,13 @@
   "dependencies": {
     "next": "16.2.10",
     "react": "19.2.4",
-    "@developerEhsan/api-client": "workspace:*",
-    "@developerEhsan/api-client-query": "workspace:*",
+    "@developerehsan/api-client": "workspace:*",
+    "@developerehsan/api-client-query": "workspace:*",
     "@tanstack/react-query": "^5.101.2",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@developerEhsan/api-client-cli": "workspace:*",
+    "@developerehsan/api-client-cli": "workspace:*",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

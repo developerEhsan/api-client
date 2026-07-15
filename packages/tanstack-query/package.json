@@ -1,7 +1,7 @@
 {
   "name": "@developerehsan/api-client-query",
   "version": "0.1.0",
-  "description": "TanStack Query v5 integration for @developerEhsan/api-client (React, Vue, Solid)",
+  "description": "TanStack Query v5 integration for @developerehsan/api-client (React, Vue, Solid)",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
   "homepage": "https://github.com/developerEhsan/api-client#readme",
@@ -56,7 +56,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@developerEhsan/api-client": "workspace:*"
+    "@developerehsan/api-client": "workspace:*"
   },
   "peerDependencies": {
     "@tanstack/react-query": ">=5.0.0",

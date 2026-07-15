@@ -11,7 +11,7 @@ import { ConfigurationError } from '../errors/ConfigurationError';
 import type { ModuleDefinition, ModuleMethods } from '../types/module.types';
 
 /** Symbol brand marking a value produced by {@link defineModule}. */
-const MODULE_BRAND: unique symbol = Symbol.for('@developerEhsan/api-client.moduleDefinition');
+const MODULE_BRAND: unique symbol = Symbol.for('@developerehsan/api-client.moduleDefinition');
 
 /** A {@link ModuleDefinition} carrying the internal {@link MODULE_BRAND}. */
 export type BrandedModuleDefinition<M extends ModuleMethods = ModuleMethods> =
@@ -41,7 +41,7 @@ export function isModuleDefinition(value: unknown): value is BrandedModuleDefini
  *
  * @example
  * ```ts
- * import { createClient, defineModule } from '@developerEhsan/api-client'
+ * import { createClient, defineModule } from '@developerehsan/api-client'
  *
  * const pet = defineModule({
  *   methods: {

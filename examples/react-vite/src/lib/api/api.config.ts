@@ -14,11 +14,11 @@
  *   api.store.getInventory()           // -> Promise<Record<string, number>>
  *
  * Regenerate types/modules with:
- *   npx @developerEhsan/api-client generate \
+ *   npx @developerehsan/api-client generate \
  *     --input ./src/lib/api/openapi.json \
  *     --output ./src/lib/api/types/generated
  */
-import { createModuleDefiner, createTypedClient } from '@developerEhsan/api-client';
+import { createModuleDefiner, createTypedClient } from '@developerehsan/api-client';
 import { generatedModules } from './types/generated/api.modules';
 import type { OperationsMap } from './types/generated/api.types';
 

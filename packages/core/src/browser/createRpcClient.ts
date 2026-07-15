@@ -64,7 +64,7 @@ function makeAbortError(): Error {
  * Create a typed RPC client bound to `transport`.
  *
  * @example
- * import { createRpcClient, serverActionTransport } from '@developerEhsan/api-client/browser'
+ * import { createRpcClient, serverActionTransport } from '@developerehsan/api-client/browser'
  * import type { Api } from './server/api.config' // type-only — erased at build time
  * import { rpc } from './server/rpc'
  *

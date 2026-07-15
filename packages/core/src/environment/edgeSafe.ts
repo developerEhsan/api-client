@@ -13,7 +13,7 @@ export type AdapterName = 'axios' | 'fetch';
 export function resolveAdapterName(requested: AdapterName, env: DetectedEnvironment): AdapterName {
   if (requested === 'axios' && !env.capabilities.supportsAxios) {
     console.warn(
-      `[@developerEhsan/api-client] Axios adapter is not supported on the "${env.environment}" runtime; falling back to the fetch adapter.`,
+      `[@developerehsan/api-client] Axios adapter is not supported on the "${env.environment}" runtime; falling back to the fetch adapter.`,
     );
     return 'fetch';
   }

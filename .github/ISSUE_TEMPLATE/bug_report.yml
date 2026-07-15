@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with @developerEhsan/api-client
+description: Report a problem with @developerehsan/api-client
 labels: [bug, triage]
 body:
   - type: markdown
@@ -9,7 +9,7 @@ body:
     id: package
     attributes:
       label: Package & version
-      placeholder: "@developerEhsan/api-client@0.1.0"
+      placeholder: "@developerehsan/api-client@0.1.0"
     validations:
       required: true
   - type: textarea

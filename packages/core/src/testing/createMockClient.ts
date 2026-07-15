@@ -27,8 +27,8 @@ export interface MockClientResult {
  *
  * @example
  * ```ts
- * import { createMockClient } from '@developerEhsan/api-client/testing'
- * import { defineModule } from '@developerEhsan/api-client'
+ * import { createMockClient } from '@developerehsan/api-client/testing'
+ * import { defineModule } from '@developerehsan/api-client'
  *
  * const { api, mock } = createMockClient({
  *   modules: {

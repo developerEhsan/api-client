@@ -47,7 +47,7 @@ export interface ExtractedServerError {
  *
  * @example
  * ```ts
- * import { extractServerError } from '@developerEhsan/api-client'
+ * import { extractServerError } from '@developerehsan/api-client'
  *
  * extractServerError({ code: 'not_found', message: 'Pet not found' })
  * // -> { serverError: { code: 'not_found', message: 'Pet not found' } }
@@ -100,7 +100,7 @@ function stringifyBody(data: unknown): string | undefined {
  *
  * @example
  * ```ts
- * import { classifyError, AuthError } from '@developerEhsan/api-client'
+ * import { classifyError, AuthError } from '@developerehsan/api-client'
  *
  * const err = classifyError({
  *   kind: 'http', status: 401, statusText: 'Unauthorized', headers: {}, data: null,

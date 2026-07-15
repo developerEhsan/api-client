@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@developerEhsan/api-client` are documented here. This project
+All notable changes to `@developerehsan/api-client` are documented here. This project
 adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.1.0] — Unreleased
@@ -26,10 +26,10 @@ Initial implementation across all seven build phases.
   `validate` / `diff` / `--watch`).
 - **Schema runtime** — background schema loading, drift detection
   (strict/loose), dependency-free response validation.
-- **TanStack Query** — `@developerEhsan/api-client-query` with `/react`, `/vue`,
+- **TanStack Query** — `@developerehsan/api-client-query` with `/react`, `/vue`,
   `/solid`; `queryOptions` / `mutationOptions` / `infiniteQueryOptions`,
   stable query keys, `invalidateQueries`.
-- **Testing** — `@developerEhsan/api-client/testing` (`createMockClient`, `MockAdapter`).
+- **Testing** — `@developerehsan/api-client/testing` (`createMockClient`, `MockAdapter`).
 
 ### Fixed (Phase 7 adversarial review)
 

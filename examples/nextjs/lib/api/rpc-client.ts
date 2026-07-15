@@ -11,7 +11,7 @@ import { rpc } from '@/app/actions';
  * The network tab shows only a POST to the same origin carrying
  * `{ module, method, args }`.
  */
-import { createRpcClient, serverActionTransport } from '@developerEhsan/api-client/browser';
+import { createRpcClient, serverActionTransport } from '@developerehsan/api-client/browser';
 import type { Api } from './api.config';
 
 export const api = createRpcClient<Api>(serverActionTransport(rpc));

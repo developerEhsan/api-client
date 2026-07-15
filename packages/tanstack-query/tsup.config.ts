@@ -16,6 +16,6 @@ export default defineConfig({
     '@tanstack/react-query',
     '@tanstack/vue-query',
     '@tanstack/solid-query',
-    '@developerEhsan/api-client',
+    '@developerehsan/api-client',
   ],
 });

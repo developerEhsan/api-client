@@ -1,5 +1,5 @@
 /**
- * React Query (v5) entry point — `@developerEhsan/api-client-query/react`.
+ * React Query (v5) entry point — `@developerehsan/api-client-query/react`.
  *
  * The generated option objects are consumed directly by `useQuery`,
  * `useMutation`, and `useInfiniteQuery`:

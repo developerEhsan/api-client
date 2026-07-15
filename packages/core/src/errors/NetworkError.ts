@@ -11,7 +11,7 @@ export interface NetworkErrorInit extends ApiErrorInit {
  *
  * @example
  * ```ts
- * import { NetworkError } from '@developerEhsan/api-client'
+ * import { NetworkError } from '@developerehsan/api-client'
  *
  * try {
  *   await api.pet.getPetById({ petId: 1 })

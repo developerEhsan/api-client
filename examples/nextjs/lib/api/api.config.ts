@@ -15,12 +15,12 @@ import 'server-only';
  *   api.store.getInventory()           // -> Promise<Record<string, number>>
  *
  * Regenerate types/modules with:
- *   npx @developerEhsan/api-client generate \
+ *   npx @developerehsan/api-client generate \
  *     --input ./src/lib/api/openapi.json \
  *     --output ./src/lib/api/types/generated
  */
-import { createModuleDefiner, createTypedClient } from '@developerEhsan/api-client';
-import { createRpcHandler } from '@developerEhsan/api-client/server';
+import { createModuleDefiner, createTypedClient } from '@developerehsan/api-client';
+import { createRpcHandler } from '@developerehsan/api-client/server';
 import { generatedModules } from './types/generated/api.modules';
 import type { OperationsMap } from './types/generated/api.types';
 

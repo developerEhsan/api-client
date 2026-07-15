@@ -64,6 +64,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build core
-        run: pnpm --filter @developerEhsan/api-client build
+        run: pnpm --filter @developerehsan/api-client build
       - name: Assert browser bundle is clean
         run: node scripts/check-browser-bundle.mjs

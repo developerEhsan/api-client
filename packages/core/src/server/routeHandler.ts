@@ -82,7 +82,7 @@ function originAllowed(req: Request, allowed: RpcRouteOptions['allowedOrigins'])
  *
  * @example
  * // app/api/rpc/route.ts (Next.js App Router)
- * import { createRpcRouteHandler } from '@developerEhsan/api-client/server'
+ * import { createRpcRouteHandler } from '@developerehsan/api-client/server'
  * import { handler } from '../../api.config'
  *
  * const route = createRpcRouteHandler(handler, {
@@ -93,7 +93,7 @@ function originAllowed(req: Request, allowed: RpcRouteOptions['allowedOrigins'])
  *
  * @example
  * // browser side pairs with httpTransport
- * import { createRpcClient, httpTransport } from '@developerEhsan/api-client/browser'
+ * import { createRpcClient, httpTransport } from '@developerehsan/api-client/browser'
  * import type { Api } from './api.config'
  *
  * const api = createRpcClient<Api>(httpTransport({ endpoint: '/api/rpc' }))

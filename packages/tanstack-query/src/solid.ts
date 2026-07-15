@@ -1,5 +1,5 @@
 /**
- * Solid Query (v5) entry point — `@developerEhsan/api-client-query/solid`.
+ * Solid Query (v5) entry point — `@developerehsan/api-client-query/solid`.
  *
  * The generated option objects are consumed directly by `useQuery`,
  * `useMutation`, and `useInfiniteQuery`:

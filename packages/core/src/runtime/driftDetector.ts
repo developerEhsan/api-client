@@ -102,7 +102,7 @@ export function handleDrift(diff: SchemaDiff, policy: DriftPolicy): void {
 
   if (!policy.onDriftDetected) {
     console.warn(
-      `[@developerEhsan/api-client] OpenAPI schema drift detected (+${diff.addedOperations.length}/-${diff.removedOperations.length}/~${diff.changedOperations.length}). Regenerate types to stay in sync.`,
+      `[@developerehsan/api-client] OpenAPI schema drift detected (+${diff.addedOperations.length}/-${diff.removedOperations.length}/~${diff.changedOperations.length}). Regenerate types to stay in sync.`,
     );
   }
 }

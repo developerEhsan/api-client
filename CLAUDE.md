@@ -15,27 +15,27 @@ pnpm typecheck   # tsc --noEmit, all packages
 Scope to one package with `--filter`:
 
 ```bash
-pnpm --filter @developerEhsan/api-client test          # core only
-pnpm --filter @developerEhsan/api-client test:watch    # watch mode
-pnpm --filter @developerEhsan/api-client build          # rebuild dist (see note below)
+pnpm --filter @developerehsan/api-client test          # core only
+pnpm --filter @developerehsan/api-client test:watch    # watch mode
+pnpm --filter @developerehsan/api-client build          # rebuild dist (see note below)
 ```
 
 Run a single test file / a single test by name (vitest):
 
 ```bash
-pnpm --filter @developerEhsan/api-client exec vitest run src/server/rpc.test.ts
-pnpm --filter @developerEhsan/api-client exec vitest run -t "S1: rejects a non-exposed"
+pnpm --filter @developerehsan/api-client exec vitest run src/server/rpc.test.ts
+pnpm --filter @developerehsan/api-client exec vitest run -t "S1: rejects a non-exposed"
 ```
 
-**Critical build ordering:** the examples and the `tanstack-query` package consume `@developerEhsan/api-client` through its **built `dist/`** (types included), not its source. After editing `packages/core/src`, run its `build` before typechecking `packages/tanstack-query` or `examples/*`, or you'll see stale-type errors (e.g. a descriptor field "missing" that you already added). There is no root `lint` implementation — only the Next.js example has ESLint.
+**Critical build ordering:** the examples and the `tanstack-query` package consume `@developerehsan/api-client` through its **built `dist/`** (types included), not its source. After editing `packages/core/src`, run its `build` before typechecking `packages/tanstack-query` or `examples/*`, or you'll see stale-type errors (e.g. a descriptor field "missing" that you already added). There is no root `lint` implementation — only the Next.js example has ESLint.
 
 ## Architecture
 
 A monorepo (`packages/*`, `examples/*`) implementing a typed, modular, universal API client factory. Three published packages:
 
-- **`packages/core`** → `@developerEhsan/api-client` — the runtime client + OpenAPI codegen.
+- **`packages/core`** → `@developerehsan/api-client` — the runtime client + OpenAPI codegen.
 - **`packages/cli`** → thin `bin` wrapper (`developerEhsan-api-client`) over core's `./codegen` export (`generate`/`validate`/`diff`).
-- **`packages/tanstack-query`** → `@developerEhsan/api-client-query` — framework-agnostic TanStack Query integration with `./react` `./vue` `./solid` entries.
+- **`packages/tanstack-query`** → `@developerehsan/api-client-query` — framework-agnostic TanStack Query integration with `./react` `./vue` `./solid` entries.
 
 ### The request pipeline (the heart of the client)
 
@@ -58,8 +58,8 @@ A monorepo (`packages/*`, `examples/*`) implementing a typed, modular, universal
 
 Two extra subpath exports let a client component call `api.module.method()` while the real request runs server-side, so the network tab shows only a same-origin POST of `{module, method, args}`:
 
-- `@developerEhsan/api-client/server` (`src/server/`) — `createRpcHandler(api, { expose, ... })` is the single trust boundary (deny-by-default allowlist + input/error sanitization; see the `S#` threat cases in `src/server/rpc.test.ts`), plus `createNextRpcAction` (Server Action) and `createRpcRouteHandler` (generic route).
-- `@developerEhsan/api-client/browser` (`src/browser/`) — dependency-free `createRpcClient<Api>(transport)` proxy; `Api = typeof serverApi` is a type-only import (erased), so no backend detail ships. Errors rehydrate to real `ApiError`.
+- `@developerehsan/api-client/server` (`src/server/`) — `createRpcHandler(api, { expose, ... })` is the single trust boundary (deny-by-default allowlist + input/error sanitization; see the `S#` threat cases in `src/server/rpc.test.ts`), plus `createNextRpcAction` (Server Action) and `createRpcRouteHandler` (generic route).
+- `@developerehsan/api-client/browser` (`src/browser/`) — dependency-free `createRpcClient<Api>(transport)` proxy; `Api = typeof serverApi` is a type-only import (erased), so no backend detail ships. Errors rehydrate to real `ApiError`.
 
 Runtime-safety invariant: the browser bundle must contain no backend host/paths/axios — verify by grepping `packages/core/dist/browser.js` and example `.next/static` chunks after a build.
 

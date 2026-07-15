@@ -1,7 +1,7 @@
 'use client';
 
 import { apiHttp } from '@/lib/api/rpc-http-client';
-import { ApiError } from '@developerEhsan/api-client/browser';
+import { ApiError } from '@developerehsan/api-client/browser';
 /**
  * Generic HTTP-transport variant. Same client surface as the Server Action demo,
  * but every call is a `POST /api/rpc` (see `lib/api/rpc-http-client.ts` and

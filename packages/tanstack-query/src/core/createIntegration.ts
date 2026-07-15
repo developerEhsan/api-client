@@ -53,7 +53,7 @@ function computeEnabled(descriptor: MethodDescriptor, params: unknown): boolean 
  *
  * @example
  * import { createClient } from './generated'
- * import { createQueryIntegration } from '@developerEhsan/api-client-query'
+ * import { createQueryIntegration } from '@developerehsan/api-client-query'
  * import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
  *
  * const client = createClient({ baseURL: 'https://petstore3.swagger.io/api/v3' })

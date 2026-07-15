@@ -310,7 +310,7 @@ export interface ModuleDefiner<Ops, Mods extends GeneratedModuleMap> {
  *
  * @example
  * ```ts
- * import { createModuleDefiner } from '@developerEhsan/api-client'
+ * import { createModuleDefiner } from '@developerehsan/api-client'
  * import type { OperationsMap } from './generated/api.types'
  * import { generatedModules } from './generated/api.modules'
  *
@@ -357,7 +357,7 @@ function pathPlaceholders(path: string): Set<string> {
  *
  * @example
  * ```ts
- * import { buildModulesFromDescriptors, createClient } from '@developerEhsan/api-client'
+ * import { buildModulesFromDescriptors, createClient } from '@developerehsan/api-client'
  * import { generatedModules } from './generated/api.modules'
  *
  * const modules = buildModulesFromDescriptors(generatedModules)
@@ -434,7 +434,7 @@ export function buildModulesFromDescriptors(descriptors: GeneratedModuleMap): Mo
  *
  * @example
  * ```ts
- * import { createTypedClient } from '@developerEhsan/api-client'
+ * import { createTypedClient } from '@developerehsan/api-client'
  * import type { OperationsMap } from './generated/api.types'
  * import { generatedModules } from './generated/api.modules'
  *

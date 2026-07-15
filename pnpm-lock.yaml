@@ -32,10 +32,10 @@ importers:
 
   examples/nextjs:
     dependencies:
-      '@developerEhsan/api-client':
+      '@developerehsan/api-client':
         specifier: workspace:*
         version: link:../../packages/core
-      '@developerEhsan/api-client-query':
+      '@developerehsan/api-client-query':
         specifier: workspace:*
         version: link:../../packages/tanstack-query
       '@tanstack/react-query':
@@ -51,7 +51,7 @@ importers:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
     devDependencies:
-      '@developerEhsan/api-client-cli':
+      '@developerehsan/api-client-cli':
         specifier: workspace:*
         version: link:../../packages/cli
       '@tailwindcss/postcss':
@@ -81,10 +81,10 @@ importers:
 
   examples/react-vite:
     dependencies:
-      '@developerEhsan/api-client':
+      '@developerehsan/api-client':
         specifier: workspace:*
         version: link:../../packages/core
-      '@developerEhsan/api-client-query':
+      '@developerehsan/api-client-query':
         specifier: workspace:*
         version: link:../../packages/tanstack-query
       '@tanstack/react-query':
@@ -100,7 +100,7 @@ importers:
       '@babel/core':
         specifier: ^7.29.7
         version: 7.29.7
-      '@developerEhsan/api-client-cli':
+      '@developerehsan/api-client-cli':
         specifier: workspace:*
         version: link:../../packages/cli
       '@rolldown/plugin-babel':
@@ -136,7 +136,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@developerEhsan/api-client':
+      '@developerehsan/api-client':
         specifier: workspace:*
         version: link:../core
     devDependencies:
@@ -170,7 +170,7 @@ importers:
 
   packages/tanstack-query:
     dependencies:
-      '@developerEhsan/api-client':
+      '@developerehsan/api-client':
         specifier: workspace:*
         version: link:../core
       '@tanstack/react-query':

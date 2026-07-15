@@ -1,5 +1,5 @@
 /**
- * `@developerEhsan/api-client/browser` — the client-side half of the SSR RPC
+ * `@developerehsan/api-client/browser` — the client-side half of the SSR RPC
  * bridge. Import this from client components. It ships no backend URL, no paths,
  * and no OpenAPI data.
  */

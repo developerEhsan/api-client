@@ -92,7 +92,7 @@ function resolveBaseURL(global: GlobalConfig, moduleBaseURL?: string): string {
     }
     if (global.baseURL) {
       console.warn(
-        `[@developerEhsan/api-client] Both "baseURL" and "activeEnvironment" are set; using activeEnvironment "${global.activeEnvironment}".`,
+        `[@developerehsan/api-client] Both "baseURL" and "activeEnvironment" are set; using activeEnvironment "${global.activeEnvironment}".`,
       );
     }
     base = resolved;

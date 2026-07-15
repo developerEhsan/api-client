@@ -4,7 +4,7 @@ import {
   createClient,
   defineModule,
   isAbortError,
-} from '@developerEhsan/api-client';
+} from '@developerehsan/api-client';
 /**
  * FEATURE LAB
  * -----------

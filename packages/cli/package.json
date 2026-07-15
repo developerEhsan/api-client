@@ -1,7 +1,7 @@
 {
   "name": "@developerehsan/api-client-cli",
   "version": "0.1.0",
-  "description": "Codegen CLI for @developerEhsan/api-client",
+  "description": "Codegen CLI for @developerehsan/api-client",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
   "homepage": "https://github.com/developerEhsan/api-client#readme",
@@ -32,7 +32,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@developerEhsan/api-client": "workspace:*"
+    "@developerehsan/api-client": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.3.0",

@@ -1,5 +1,5 @@
 /**
- * Node-only codegen entry point (subpath export `@developerEhsan/api-client/codegen`).
+ * Node-only codegen entry point (subpath export `@developerehsan/api-client/codegen`).
  * Consumed by the CLI; not part of the browser/edge bundle.
  */
 export { generate, validate, diff } from './generate';

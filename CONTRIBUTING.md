@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving `@developerEhsan/api-client`! 🎉
+Thanks for your interest in improving `@developerehsan/api-client`! 🎉
 
 ## Prerequisites
 
@@ -18,11 +18,11 @@ pnpm lint        # Biome check
 ```
 
 > **Build ordering matters.** The `tanstack-query` package and the examples
-> consume `@developerEhsan/api-client` through its built `dist/`, not its source.
+> consume `@developerehsan/api-client` through its built `dist/`, not its source.
 > After editing `packages/core/src`, run its build before typechecking dependents:
 >
 > ```bash
-> pnpm --filter @developerEhsan/api-client build
+> pnpm --filter @developerehsan/api-client build
 > ```
 
 ## Workflow

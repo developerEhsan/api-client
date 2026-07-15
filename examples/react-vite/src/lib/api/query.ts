@@ -11,7 +11,7 @@
  * pipeline (cache, dedup, retry, auth). Query keys are stable & hierarchical:
  *   ['developerEhsan', 'pet', 'findPetsByStatus', params]
  */
-import { createQueryIntegration } from '@developerEhsan/api-client-query/react';
+import { createQueryIntegration } from '@developerehsan/api-client-query/react';
 import { api } from './api.config';
 import { generatedModules } from './types/generated/api.modules';
 

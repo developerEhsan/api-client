@@ -7,7 +7,7 @@ import { rpcHandler } from '@/lib/api/api.config';
  * The handler enforces CSRF (same-origin) and a body-size cap itself, since a
  * raw route has no framework-provided protection.
  */
-import { createRpcRouteHandler } from '@developerEhsan/api-client/server';
+import { createRpcRouteHandler } from '@developerehsan/api-client/server';
 
 const handle = createRpcRouteHandler(rpcHandler);
 

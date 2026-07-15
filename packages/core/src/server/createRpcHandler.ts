@@ -185,7 +185,7 @@ function parsePayload<Api>(payload: unknown): RpcCall<Api> {
  * @example
  * // server/api.config.ts (holds the secrets — never imported by the browser)
  * import { createClient } from './generated'
- * import { createRpcHandler } from '@developerEhsan/api-client/server'
+ * import { createRpcHandler } from '@developerehsan/api-client/server'
  *
  * const server = createClient({ baseURL: 'https://petstore3.swagger.io/api/v3' })
  * export type Api = typeof server

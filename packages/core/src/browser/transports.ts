@@ -19,7 +19,7 @@ export type ServerAction = (call: RpcCall) => Promise<RpcResponse>;
  * uniform envelope, so this is a thin, named seam.
  *
  * @example
- * import { createRpcClient, serverActionTransport } from '@developerEhsan/api-client/browser'
+ * import { createRpcClient, serverActionTransport } from '@developerehsan/api-client/browser'
  * import type { Api } from './server/api.config' // type-only — erased
  * import { rpc } from './server/rpc' // exported from a "use server" module
  *
@@ -60,7 +60,7 @@ export interface HttpTransportOptions {
  * closes the simple-request CSRF vector.
  *
  * @example
- * import { createRpcClient, httpTransport } from '@developerEhsan/api-client/browser'
+ * import { createRpcClient, httpTransport } from '@developerehsan/api-client/browser'
  * import type { Api } from './server/api.config' // type-only — erased
  *
  * const api = createRpcClient<Api>(

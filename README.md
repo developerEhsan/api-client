@@ -1,8 +1,8 @@
-# @developerEhsan/api-client
+# @developerehsan/api-client
 
 [![CI](https://github.com/developerEhsan/api-client/actions/workflows/ci.yml/badge.svg)](https://github.com/developerEhsan/api-client/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@developerEhsan/api-client.svg)](https://www.npmjs.com/package/@developerEhsan/api-client)
-[![npm downloads](https://img.shields.io/npm/dm/@developerEhsan/api-client.svg)](https://www.npmjs.com/package/@developerEhsan/api-client)
+[![npm version](https://img.shields.io/npm/v/@developerehsan/api-client.svg)](https://www.npmjs.com/package/@developerehsan/api-client)
+[![npm downloads](https://img.shields.io/npm/dm/@developerehsan/api-client.svg)](https://www.npmjs.com/package/@developerehsan/api-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
@@ -52,7 +52,7 @@ after that you can jump straight to the reference tables.
 
 ## 1. What is this library?
 
-`@developerEhsan/api-client` turns an HTTP/REST backend into a **typed, ergonomic
+`@developerehsan/api-client` turns an HTTP/REST backend into a **typed, ergonomic
 client object** you call like this:
 
 ```ts
@@ -91,13 +91,13 @@ code stays clean.
 
 | Package | Import | Purpose |
 | --- | --- | --- |
-| `@developerEhsan/api-client` | `@developerEhsan/api-client` | The runtime library |
-| — codegen entry | `@developerEhsan/api-client/codegen` | Node-only codegen functions (used by the CLI) |
-| — testing entry | `@developerEhsan/api-client/testing` | Mock client & adapter |
-| — server entry | `@developerEhsan/api-client/server` | SSR RPC bridge — server half (`createRpcHandler`, Next/route glue) |
-| — browser entry | `@developerEhsan/api-client/browser` | SSR RPC bridge — dependency-free browser client (`createRpcClient`, transports) |
-| `@developerEhsan/api-client-cli` | `npx @developerEhsan/api-client` | Codegen CLI |
-| `@developerEhsan/api-client-query` | `.../query/react` \| `/vue` \| `/solid` | TanStack Query integration |
+| `@developerehsan/api-client` | `@developerehsan/api-client` | The runtime library |
+| — codegen entry | `@developerehsan/api-client/codegen` | Node-only codegen functions (used by the CLI) |
+| — testing entry | `@developerehsan/api-client/testing` | Mock client & adapter |
+| — server entry | `@developerehsan/api-client/server` | SSR RPC bridge — server half (`createRpcHandler`, Next/route glue) |
+| — browser entry | `@developerehsan/api-client/browser` | SSR RPC bridge — dependency-free browser client (`createRpcClient`, transports) |
+| `@developerehsan/api-client-cli` | `npx @developerehsan/api-client` | Codegen CLI |
+| `@developerehsan/api-client-query` | `.../query/react` \| `/vue` \| `/solid` | TanStack Query integration |
 
 ---
 
@@ -149,9 +149,9 @@ your call
 
 ```bash
 # pick your package manager
-pnpm add @developerEhsan/api-client
-npm  install @developerEhsan/api-client
-yarn add @developerEhsan/api-client
+pnpm add @developerehsan/api-client
+npm  install @developerehsan/api-client
+yarn add @developerehsan/api-client
 ```
 
 ### Optional peer dependencies
@@ -166,9 +166,9 @@ pnpm add axios
 pnpm add zod        # optional; the built-in validator needs no zod
 
 # TanStack Query integration (choose your framework)
-pnpm add @developerEhsan/api-client-query @tanstack/react-query
-pnpm add @developerEhsan/api-client-query @tanstack/vue-query
-pnpm add @developerEhsan/api-client-query @tanstack/solid-query
+pnpm add @developerehsan/api-client-query @tanstack/react-query
+pnpm add @developerehsan/api-client-query @tanstack/vue-query
+pnpm add @developerehsan/api-client-query @tanstack/solid-query
 ```
 
 ### Requirements
@@ -184,7 +184,7 @@ Create one file that configures and exports the client. Import this everywhere.
 
 ```ts
 // src/api.ts
-import { createClient, defineModule } from '@developerEhsan/api-client'
+import { createClient, defineModule } from '@developerehsan/api-client'
 
 export const api = createClient({
   // Where your API lives.
@@ -520,7 +520,7 @@ await api.public.getStatus(undefined, { skipAuth: true })
 Never read `localStorage` on the server. Use the provided helper:
 
 ```ts
-import { serverTokenFromCookie } from '@developerEhsan/api-client'
+import { serverTokenFromCookie } from '@developerehsan/api-client'
 
 auth: { strategy: 'bearer', getToken: serverTokenFromCookie('access_token') }
 ```
@@ -710,7 +710,7 @@ Cache/dedup keys include the tenant id, so tenants never see each other's data.
 `AsyncLocalStorage` keeps concurrent server requests isolated:
 
 ```ts
-import { runWithTenant, getTenantFromContext, serverTenantResolver } from '@developerEhsan/api-client'
+import { runWithTenant, getTenantFromContext, serverTenantResolver } from '@developerehsan/api-client'
 
 // Configure the resolver to read the ambient context (or a request header):
 createClient({ tenancy: { getTenantId: getTenantFromContext } })
@@ -767,7 +767,7 @@ Every failure is one of these (all extend `ApiError`):
 | `ConfigurationError` | Bad config, missing path param, failing tenant resolver. |
 
 ```ts
-import { ApiError, AuthError, TimeoutError } from '@developerEhsan/api-client'
+import { ApiError, AuthError, TimeoutError } from '@developerehsan/api-client'
 
 try {
   await api.users.get('42')
@@ -847,19 +847,19 @@ Generate TypeScript types and a module descriptor map from an OpenAPI 3.x spec.
 
 ```bash
 # Generate types + descriptors
-npx @developerEhsan/api-client generate \
+npx @developerehsan/api-client generate \
   --input ./openapi.json \
   --output ./src/generated \
   --base-url https://api.example.com
 
 # Re-generate on change
-npx @developerEhsan/api-client generate --watch
+npx @developerehsan/api-client generate --watch
 
 # Validate a spec (CI-friendly; no file writes)
-npx @developerEhsan/api-client validate --input ./openapi.json
+npx @developerehsan/api-client validate --input ./openapi.json
 
 # Show what changed since the last generation
-npx @developerEhsan/api-client diff --input ./openapi.json --output ./src/generated
+npx @developerehsan/api-client diff --input ./openapi.json --output ./src/generated
 ```
 
 ### Generated files
@@ -910,13 +910,13 @@ api.getSchema()   // the loaded SchemaAST (or undefined before it loads)
 
 ## 20. TanStack Query — React
 
-Install `@developerEhsan/api-client-query` and `@tanstack/react-query`, then build
+Install `@developerehsan/api-client-query` and `@tanstack/react-query`, then build
 an integration from your client + a descriptor map (the generated
 `generatedModules`, or a hand-written one).
 
 ```tsx
 // query.ts
-import { createQueryIntegration } from '@developerEhsan/api-client-query/react'
+import { createQueryIntegration } from '@developerehsan/api-client-query/react'
 import { generatedModules } from './generated/api.modules'   // or a manual map
 import { api } from './api'
 
@@ -976,7 +976,7 @@ directly into `@tanstack/vue-query`.
 
 ```ts
 // query.ts
-import { createQueryIntegration } from '@developerEhsan/api-client-query/vue'
+import { createQueryIntegration } from '@developerehsan/api-client-query/vue'
 import { generatedModules } from './generated/api.modules'
 import { api } from './api'
 
@@ -1012,7 +1012,7 @@ Import from the `/solid` entry; use with `@tanstack/solid-query`.
 
 ```tsx
 // query.ts
-import { createQueryIntegration } from '@developerEhsan/api-client-query/solid'
+import { createQueryIntegration } from '@developerehsan/api-client-query/solid'
 import { generatedModules } from './generated/api.modules'
 import { api } from './api'
 
@@ -1076,8 +1076,8 @@ ergonomics.
 
 ```ts
 // lib/api/api.config.ts  (server-only module)
-import { createTypedClient } from '@developerEhsan/api-client'
-import { createRpcHandler } from '@developerEhsan/api-client/server'
+import { createTypedClient } from '@developerehsan/api-client'
+import { createRpcHandler } from '@developerehsan/api-client/server'
 import type { OperationsMap } from './types/generated/api.types'
 import { generatedModules } from './types/generated/api.modules'
 
@@ -1112,7 +1112,7 @@ export const rpcHandler = createRpcHandler(api, {
 ```ts
 // app/actions.ts
 'use server'
-import { createNextRpcAction } from '@developerEhsan/api-client/server'
+import { createNextRpcAction } from '@developerehsan/api-client/server'
 import { rpcHandler } from '@/lib/api/api.config'
 export const rpc = createNextRpcAction(rpcHandler)
 ```
@@ -1121,7 +1121,7 @@ export const rpc = createNextRpcAction(rpcHandler)
 
 ```ts
 // app/api/rpc/route.ts
-import { createRpcRouteHandler } from '@developerEhsan/api-client/server'
+import { createRpcRouteHandler } from '@developerehsan/api-client/server'
 import { rpcHandler } from '@/lib/api/api.config'
 export const POST = createRpcRouteHandler(rpcHandler)
 // { allowedOrigins?, maxBodyBytes = 128*1024, csrf = true }
@@ -1131,13 +1131,13 @@ export const POST = createRpcRouteHandler(rpcHandler)
 
 ```ts
 // lib/api/rpc-client.ts
-import { createRpcClient, serverActionTransport } from '@developerEhsan/api-client/browser'
+import { createRpcClient, serverActionTransport } from '@developerehsan/api-client/browser'
 import type { Api } from './api.config' // ← type-only import; erased at build
 import { rpc } from '@/app/actions'
 
 export const api = createRpcClient<Api>(serverActionTransport(rpc))
 // Or, for the generic route:
-//   import { httpTransport } from '@developerEhsan/api-client/browser'
+//   import { httpTransport } from '@developerehsan/api-client/browser'
 //   export const api = createRpcClient<Api>(httpTransport({ endpoint: '/api/rpc' }))
 ```
 
@@ -1146,7 +1146,7 @@ export const api = createRpcClient<Api>(serverActionTransport(rpc))
 ```tsx
 'use client'
 import { api } from '@/lib/api/rpc-client'
-import { ApiError } from '@developerEhsan/api-client/browser'
+import { ApiError } from '@developerehsan/api-client/browser'
 
 async function load() {
   try {
@@ -1162,7 +1162,7 @@ bridge client and the **paths-stripped** descriptor the codegen emits
 (`api.rpc.ts`, which contains verbs + `hasPathParams` but no paths):
 
 ```ts
-import { createQueryIntegration } from '@developerEhsan/api-client-query/react'
+import { createQueryIntegration } from '@developerehsan/api-client-query/react'
 import { api } from './rpc-client'
 import { rpcModules } from './types/generated/api.rpc' // no backend paths
 export const q = createQueryIntegration(api, { modules: rpcModules })
@@ -1258,8 +1258,8 @@ createClient({ http: { adapter: 'fetch' }, /* ... */ })
 Use the built-in mock client — no real network, full pipeline.
 
 ```ts
-import { createMockClient } from '@developerEhsan/api-client/testing'
-import { defineModule } from '@developerEhsan/api-client'
+import { createMockClient } from '@developerehsan/api-client/testing'
+import { defineModule } from '@developerehsan/api-client'
 
 const { api, mock } = createMockClient({
   modules: {
@@ -1289,7 +1289,7 @@ can also use `createMockAdapter()` directly with a real `createClient`.
 
 ## 26. Full public API reference
 
-### `@developerEhsan/api-client`
+### `@developerehsan/api-client`
 
 **Factory**
 
@@ -1342,31 +1342,31 @@ type `HttpAdapter`
 `createCancellationManager(config)`, `isAbortError(err)`, `linkSignals(...signals)`,
 `withRetry(fn, opts, deps?)`, `computeBackoff(...)`, `parseRetryAfter(headers)`
 
-### `@developerEhsan/api-client/server` (SSR RPC bridge — server)
+### `@developerehsan/api-client/server` (SSR RPC bridge — server)
 
 - `createRpcHandler(api, options): RpcHandler` — options: `expose` (required, deny-by-default, typed allowlist), `authorize?`, `onRequest?`, `onError?`, `transformResult?`, `maxInputDepth?`, `maxInputKeys?`, `maxTimeout?`, `dev?`
 - `createNextRpcAction(handler): NextRpcAction` — wrap as a Next.js Server Action
 - `createRpcRouteHandler(handler, { csrf?, allowedOrigins?, maxBodyBytes? }): (Request) => Promise<Response>`
 - `RpcSecurityError`, types `RpcHandlerOptions`, `ExposeMap`, `RpcRequestContext`, `RpcCall`, `RpcResponse`, `RpcErrorShape`
 
-### `@developerEhsan/api-client/browser` (SSR RPC bridge — browser)
+### `@developerehsan/api-client/browser` (SSR RPC bridge — browser)
 
 - `createRpcClient<Api>(transport): RpcClient<Api>` — dependency-free proxy; `Api` is a **type-only** import
 - `serverActionTransport(action)`, `httpTransport({ endpoint, fetch?, headers? })`
 - `ApiError` (for `instanceof` after rehydration), `isRpcErrorShape`, `isRpcResponse`, types `Transport`, `RpcPerCall`, `RpcClient`
 
-### `@developerEhsan/api-client/codegen` (Node only)
+### `@developerehsan/api-client/codegen` (Node only)
 
 `generate(options)`, `validate(input)`, `diff(input, output)`,
 `parseOpenApi(doc)`, `emitTypes(ast, opts?)`, `emitModules(ast, opts?)`,
 `emitRpcModules(ast, opts?)` (paths-stripped descriptor for the bridge).
 `generate` emits `api.types.ts`, `api.modules.ts`, `api.rpc.ts`, and `api.schema.hash`.
 
-### `@developerEhsan/api-client/testing`
+### `@developerehsan/api-client/testing`
 
 `createMockClient(options)`, `createMockAdapter()`
 
-### `@developerEhsan/api-client-query/{react,vue,solid}`
+### `@developerehsan/api-client-query/{react,vue,solid}`
 
 `createQueryIntegration(client, { modules, getNextPageParam?, pageParamName? })`,
 `moduleKey(module)`, `methodKey(module, method, params?)`

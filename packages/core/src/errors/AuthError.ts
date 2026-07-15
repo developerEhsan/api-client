@@ -5,7 +5,7 @@ import { ApiError, type ApiErrorInit } from './ApiError';
  *
  * @example
  * ```ts
- * import { AuthError } from '@developerEhsan/api-client'
+ * import { AuthError } from '@developerehsan/api-client'
  *
  * try {
  *   await api.pet.getPetById({ petId: 1 })

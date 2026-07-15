@@ -60,8 +60,8 @@ function normalize(res: MockResponse): AdapterResponse {
  *
  * @example
  * ```ts
- * import { createMockAdapter } from '@developerEhsan/api-client/testing'
- * import { createClient } from '@developerEhsan/api-client'
+ * import { createMockAdapter } from '@developerehsan/api-client/testing'
+ * import { createClient } from '@developerehsan/api-client'
  *
  * const mock = createMockAdapter()
  * mock.on('GET', '/pet/1', { id: 1, name: 'Rex' })

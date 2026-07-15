@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-The latest published minor of each `@developerEhsan/api-client*` package receives
+The latest published minor of each `@developerehsan/api-client*` package receives
 security fixes.
 
 ## Reporting a vulnerability

@@ -1,5 +1,5 @@
 /**
- * Public API surface for @developerEhsan/api-client (browser / node default bundle).
+ * Public API surface for @developerehsan/api-client (browser / node default bundle).
  * Explicit exports only — nothing else is part of the supported contract.
  */
 

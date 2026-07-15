@@ -53,7 +53,7 @@ export function createSchemaLoader(deps: SchemaLoaderDeps): SchemaLoader {
       const lastGood = cache.getLastGood();
       if (lastGood) {
         console.warn(
-          `[@developerEhsan/api-client] Runtime schema fetch failed; using last known-good schema. (${cause instanceof Error ? cause.message : String(cause)})`,
+          `[@developerehsan/api-client] Runtime schema fetch failed; using last known-good schema. (${cause instanceof Error ? cause.message : String(cause)})`,
         );
         return lastGood;
       }

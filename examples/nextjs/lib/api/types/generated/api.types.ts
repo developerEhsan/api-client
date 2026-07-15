@@ -1,7 +1,7 @@
 /**
  * AUTO-GENERATED — DO NOT EDIT.
  *
- * Regenerate via the @developerEhsan/api-client codegen; manual edits are lost.
+ * Regenerate via the @developerehsan/api-client codegen; manual edits are lost.
  * source: Swagger Petstore - OpenAPI 3.0 v1.0.27 (OpenAPI 3.0.4)
  * generatedAt: 2026-07-14T00:00:00Z
  * sourceHash: ee0d6198

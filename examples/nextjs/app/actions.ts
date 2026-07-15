@@ -7,6 +7,6 @@ import { rpcHandler } from '@/lib/api/api.config';
  * paths, and OpenAPI document it holds — never ships to the browser. The client
  * calls `rpc({ module, method, args })`; the handler validates and dispatches.
  */
-import { createNextRpcAction } from '@developerEhsan/api-client/server';
+import { createNextRpcAction } from '@developerehsan/api-client/server';
 
 export const rpc = createNextRpcAction(rpcHandler);

@@ -7,7 +7,7 @@ import { ApiError } from './ApiError';
  *
  * @example
  * ```ts
- * import { createClient, ConfigurationError } from '@developerEhsan/api-client'
+ * import { createClient, ConfigurationError } from '@developerehsan/api-client'
  *
  * try {
  *   const api = createClient({ openapi: { mode: 'runtime' } }) // missing baseURL

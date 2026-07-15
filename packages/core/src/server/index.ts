@@ -1,5 +1,5 @@
 /**
- * `@developerEhsan/api-client/server` — the server-side half of the SSR RPC
+ * `@developerehsan/api-client/server` — the server-side half of the SSR RPC
  * bridge. Import this in a server-only module (Server Action, route handler).
  * It runs the real secret-holding client behind an allowlist-guarded boundary.
  */

@@ -1,4 +1,4 @@
-import { ApiError } from '@developerEhsan/api-client';
+import { ApiError } from '@developerehsan/api-client';
 /**
  * DIRECT CLIENT USAGE
  * -------------------

@@ -3,7 +3,7 @@
 import { q } from '@/lib/api/query';
 import { api } from '@/lib/api/rpc-client';
 import type { Pet } from '@/lib/api/types/generated/api.types';
-import { ApiError } from '@developerEhsan/api-client/browser';
+import { ApiError } from '@developerehsan/api-client/browser';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 /**
  * The whole point of this demo: this is a CLIENT component, yet every

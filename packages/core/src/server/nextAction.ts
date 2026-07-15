@@ -20,7 +20,7 @@ export type NextRpcAction = (payload: unknown) => Promise<RpcResponse>;
  * @example
  * // app/rpc.ts
  * 'use server'
- * import { createNextRpcAction } from '@developerEhsan/api-client/server'
+ * import { createNextRpcAction } from '@developerehsan/api-client/server'
  * import { handler } from './api.config'
  *
  * export const rpc = createNextRpcAction(handler)
@@ -28,7 +28,7 @@ export type NextRpcAction = (payload: unknown) => Promise<RpcResponse>;
  * @example
  * // app/client.ts (browser) — type-only import keeps the secrets server-side
  * 'use client'
- * import { createRpcClient, serverActionTransport } from '@developerEhsan/api-client/browser'
+ * import { createRpcClient, serverActionTransport } from '@developerehsan/api-client/browser'
  * import type { Api } from './api.config'
  * import { rpc } from './rpc'
  *

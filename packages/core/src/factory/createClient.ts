@@ -180,7 +180,7 @@ function collectModuleDefinitions(
  *
  * @example
  * ```ts
- * import { createClient, defineModule } from '@developerEhsan/api-client'
+ * import { createClient, defineModule } from '@developerehsan/api-client'
  *
  * const api = createClient({
  *   baseURL: 'https://petstore3.swagger.io/api/v3',
@@ -535,7 +535,7 @@ export function createClient(config: GlobalConfig): ApiClient {
             if ((resolved.validation.mode ?? 'loose') === 'strict') {
               throw new SchemaError({ message, request });
             }
-            console.warn(`[@developerEhsan/api-client] ${message}`);
+            console.warn(`[@developerehsan/api-client] ${message}`);
           }
         }
       }

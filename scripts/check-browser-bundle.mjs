@@ -13,7 +13,7 @@ let source;
 try {
   source = readFileSync(bundlePath, 'utf8');
 } catch {
-  console.error(`✗ Could not read ${bundlePath}. Did you build @developerEhsan/api-client first?`);
+  console.error(`✗ Could not read ${bundlePath}. Did you build @developerehsan/api-client first?`);
   process.exit(1);
 }
 

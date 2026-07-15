@@ -6,7 +6,7 @@ import { ApiError, type ApiErrorInit } from './ApiError';
  *
  * @example
  * ```ts
- * import { SchemaError } from '@developerEhsan/api-client'
+ * import { SchemaError } from '@developerehsan/api-client'
  *
  * try {
  *   await api.pet.getPetById({ petId: 1 })
@@ -34,7 +34,7 @@ export class SchemaError extends ApiError {
  *
  * @example
  * ```ts
- * import { SchemaParseError } from '@developerEhsan/api-client'
+ * import { SchemaParseError } from '@developerehsan/api-client'
  *
  * try {
  *   await parseOpenApiSpec(rawSpec)

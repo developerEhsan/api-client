@@ -1,5 +1,5 @@
 /**
- * @developerEhsan/api-client codegen CLI.
+ * @developerehsan/api-client codegen CLI.
  *
  * Three commands: `generate` (emit the typed client from an OpenAPI document),
  * `validate` (parse and report operation/schema/module counts), and `diff`
@@ -26,7 +26,7 @@
  * developerEhsan-api-client diff --input ./openapi.json --output ./src/generated
  */
 import { watch } from 'node:fs';
-import { diff, generate, validate } from '@developerEhsan/api-client/codegen';
+import { diff, generate, validate } from '@developerehsan/api-client/codegen';
 
 interface Args {
   _: string[];

@@ -200,7 +200,7 @@ function emitBanner(ast: SchemaAST, opts: EmitTypesOptions): string {
     '/**',
     ' * AUTO-GENERATED — DO NOT EDIT.',
     ' *',
-    ' * Regenerate via the @developerEhsan/api-client codegen; manual edits are lost.',
+    ' * Regenerate via the @developerehsan/api-client codegen; manual edits are lost.',
     ` * source: ${ast.info.title} v${ast.info.version} (OpenAPI ${ast.openapiVersion})`,
     ` * generatedAt: ${opts.generatedAt ?? ''}`,
     ` * sourceHash: ${opts.sourceHash ?? ''}`,

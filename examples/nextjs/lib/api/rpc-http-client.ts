@@ -10,7 +10,7 @@
  * As with the Server Action client, `Api` is a type-only import (erased), so no
  * backend URL/paths/openapi ship to the browser.
  */
-import { createRpcClient, httpTransport } from '@developerEhsan/api-client/browser';
+import { createRpcClient, httpTransport } from '@developerehsan/api-client/browser';
 import type { Api } from './api.config';
 
 export const apiHttp = createRpcClient<Api>(

@@ -10,7 +10,7 @@ import { api } from '@/lib/api/api.config';
  *
  * `force-dynamic` keeps this out of the static build (it fetches per request).
  */
-import { ApiError } from '@developerEhsan/api-client';
+import { ApiError } from '@developerehsan/api-client';
 
 export const dynamic = 'force-dynamic';
 
