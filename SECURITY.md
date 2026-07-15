@@ -11,7 +11,7 @@ security fixes.
 
 Report vulnerabilities privately via GitHub's
 [private vulnerability reporting](https://github.com/developerEhsan/api-client/security/advisories/new)
-(Security → Report a vulnerability), or email **ehsan@platas.io**.
+(Security → Report a vulnerability), or email **<ehsanshahid787@gmail.com>**.
 
 Please include a description, affected package/version, and a reproduction if
 possible. We aim to acknowledge within 72 hours and to ship a fix or mitigation

@@ -1,10 +1,10 @@
 {
-  "name": "@developerEhsan/api-client-monorepo",
+  "name": "@developerehsan/api-client",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
   "description": "Typed, modular, universal API client factory for TypeScript applications",
   "license": "MIT",
-  "author": "EHSAN <ehsan@platas.io>",
+  "author": "EHSAN <ehsanshahid787@gmail.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/developerEhsan/api-client.git"
@@ -28,7 +28,10 @@
     "changeset:publish": "pnpm build && changeset publish"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"]
+    "onlyBuiltDependencies": [
+      "@biomejs/biome",
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -38,5 +41,12 @@
     "tsup": "^8.3.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
-  }
+  },
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "keywords": [
+    "api-manager"
+  ]
 }

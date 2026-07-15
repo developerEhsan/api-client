@@ -1,9 +1,9 @@
 {
-  "name": "@developerEhsan/api-client",
+  "name": "@developerehsan/api-client",
   "version": "0.1.0",
   "description": "Typed, modular, universal API client factory",
   "license": "MIT",
-  "author": "EHSAN <ehsan@platas.io>",
+  "author": "EHSAN <ehsanshahid787@gmail.com>",
   "homepage": "https://github.com/developerEhsan/api-client#readme",
   "repository": {
     "type": "git",
