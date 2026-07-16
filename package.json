@@ -25,10 +25,14 @@
     "format": "biome check --write .",
     "changeset": "changeset",
     "changeset:version": "changeset version",
-    "changeset:publish": "pnpm build && changeset publish"
+    "changeset:publish": "pnpm build && changeset publish",
+    "prepublishOnly": "pnpm build"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"]
+    "onlyBuiltDependencies": [
+      "@biomejs/biome",
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -43,5 +47,7 @@
   "directories": {
     "example": "examples"
   },
-  "keywords": ["api-manager"]
+  "keywords": [
+    "api-manager"
+  ]
 }
