@@ -1,6 +1,6 @@
 {
   "name": "@developerehsan/api-client-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Codegen CLI for @developerehsan/api-client",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
@@ -13,7 +13,12 @@
   "bugs": {
     "url": "https://github.com/developerEhsan/api-client/issues"
   },
-  "keywords": ["api-client", "openapi", "codegen", "cli"],
+  "keywords": [
+    "api-client",
+    "openapi",
+    "codegen",
+    "cli"
+  ],
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -25,7 +30,9 @@
   "bin": {
     "developerEhsan-api-client": "./dist/cli.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "test": "vitest run --passWithNoTests",
