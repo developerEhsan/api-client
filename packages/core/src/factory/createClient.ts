@@ -14,9 +14,11 @@ import type { CacheEntry } from '../types/cache.types';
 import type {
   GlobalConfig,
   HttpAdapterLike,
+  LifecycleHooks,
   ModuleConfig,
   ModulesConfig,
   PerCallConfig,
+  ResolvedConfigSnapshot,
 } from '../types/config.types';
 import type { ApiRequest, ApiResponse } from '../types/http.types';
 import type { ModuleContext, ModuleDefinition, ModuleRequestSpec } from '../types/module.types';
@@ -66,6 +68,13 @@ export interface ClientCache {
 export interface ClientConfigApi {
   get(): Readonly<GlobalConfig>;
   update(patch: Partial<GlobalConfig>): void;
+  /**
+   * Introspect the effective, fully-merged config a call would run with, given
+   * an optional module name and per-call overrides. Returns a JSON-safe,
+   * secret-redacted snapshot (see {@link ResolvedConfigSnapshot}). Useful for
+   * debugging which layer won.
+   */
+  resolve(moduleName?: string, perCall?: PerCallConfig): ResolvedConfigSnapshot;
 }
 
 export type ClientEventListener = (payload: unknown) => void;
@@ -129,6 +138,37 @@ function validateConfig(config: GlobalConfig): void {
         `activeEnvironment "${String(config.activeEnvironment)}" is not present in the environments map (E1).`,
       );
     }
+  }
+
+  // Fail-fast on nonsensical numeric/strategy combinations so misconfigurations
+  // surface at createClient time rather than as confusing runtime behavior.
+  const nonNegative = (value: number | undefined, label: string): void => {
+    if (typeof value === 'number' && (!Number.isFinite(value) || value < 0)) {
+      throw new ConfigurationError(`"${label}" must be a finite number >= 0 (got ${value}).`);
+    }
+  };
+  nonNegative(config.http?.timeout, 'http.timeout');
+  nonNegative(config.cache?.ttl, 'cache.ttl');
+  nonNegative(config.cache?.maxSize, 'cache.maxSize');
+  nonNegative(config.http?.retry?.attempts, 'http.retry.attempts');
+  nonNegative(config.http?.retry?.baseDelay, 'http.retry.baseDelay');
+  nonNegative(config.http?.retry?.maxDelay, 'http.retry.maxDelay');
+
+  const concurrency = config.http?.queue?.concurrency;
+  if (typeof concurrency === 'number' && (!Number.isFinite(concurrency) || concurrency < 1)) {
+    throw new ConfigurationError(
+      `"http.queue.concurrency" must be a finite number >= 1 (got ${concurrency}).`,
+    );
+  }
+
+  if (config.cache?.strategy === 'stale-while-revalidate' && config.cache?.enabled === false) {
+    throw new ConfigurationError(
+      'cache.strategy "stale-while-revalidate" requires cache.enabled to not be false.',
+    );
+  }
+
+  if (config.auth?.strategy === 'oauth2' && !config.auth.refreshEndpoint) {
+    throw new ConfigurationError('auth strategy "oauth2" requires a "refreshEndpoint".');
   }
 }
 
@@ -316,7 +356,21 @@ export function createClient(config: GlobalConfig): ApiClient {
     origin: { moduleName: string; methodName: string },
     perCall?: PerCallConfig,
   ): Promise<ApiResponse<T>> => {
-    const resolved = resolveRequestConfig(currentConfig, moduleConfigs[origin.moduleName], perCall);
+    const resolved = resolveRequestConfig(
+      currentConfig,
+      moduleConfigs[origin.moduleName],
+      perCall,
+      (hook, hookError) => {
+        // A hook that throws must never break the request; surface it for
+        // diagnostics only.
+        if (logging) logging.onError(toApiError(hookError));
+        else
+          console.warn(
+            `[@developerehsan/api-client] lifecycle hook "${hook}" threw and was ignored:`,
+            hookError,
+          );
+      },
+    );
 
     // Auth-independent request pieces, computed once and reused across a
     // post-refresh retry.
@@ -397,9 +451,7 @@ export function createClient(config: GlobalConfig): ApiClient {
 
       let outgoing = request;
       if (logging) outgoing = logging.onRequest(outgoing);
-      if (typeof currentConfig.hooks?.onRequest === 'function') {
-        outgoing = await currentConfig.hooks.onRequest(outgoing);
-      }
+      outgoing = await resolved.hooks.onRequest(outgoing);
       emit('request', outgoing);
 
       // Timeout enforcement (spec N1). Adapters (esp. fetch) do not all honor
@@ -453,7 +505,7 @@ export function createClient(config: GlobalConfig): ApiClient {
     const reportError = async (error: ApiError): Promise<never> => {
       if (logging) logging.onError(error);
       emit('error', error);
-      await currentConfig.hooks?.onError?.(error);
+      await resolved.hooks.onError(error);
       throw error;
     };
 
@@ -466,6 +518,7 @@ export function createClient(config: GlobalConfig): ApiClient {
           });
 
     // Retry options resolved for this request (defaults applied upstream).
+    const retryConfigOnRetry = resolved.retry.onRetry;
     const retryOpts: ResolvedRetryOptions = {
       attempts: resolved.retry.attempts,
       backoff: resolved.retry.backoff,
@@ -473,7 +526,12 @@ export function createClient(config: GlobalConfig): ApiClient {
       maxDelay: resolved.retry.maxDelay,
       jitter: resolved.retry.jitter,
       ...(resolved.retry.retryOn ? { retryOn: resolved.retry.retryOn } : {}),
-      ...(resolved.retry.onRetry ? { onRetry: resolved.retry.onRetry } : {}),
+      // Fire the RetryConfig.onRetry (if any) AND the composed lifecycle
+      // onRetry hooks (global/module/per-call) on every retry attempt.
+      onRetry: (attempt: number, error: ApiError) => {
+        retryConfigOnRetry?.(attempt, error);
+        resolved.hooks.onRetry(attempt, error);
+      },
     };
 
     // Retry loop around attempt(): retryable statuses (5xx/429) are thrown so
@@ -548,16 +606,17 @@ export function createClient(config: GlobalConfig): ApiClient {
         fromCache: false,
       };
       if (logging) response = logging.onResponse(response);
-      if (typeof currentConfig.hooks?.onResponse === 'function') {
-        response = (await currentConfig.hooks.onResponse(response)) as ApiResponse<T>;
-      }
+      response = await resolved.hooks.onResponse(response);
       emit('response', response);
       return response;
     };
 
-    // Concurrency queue (step 5) and dedup (step 6) wrappers.
+    // Concurrency queue (step 5) and dedup (step 6) wrappers. A per-call
+    // `queue: false` bypasses the queue for this request only; otherwise the
+    // global setting applies.
+    const queueForThisCall = resolved.queue ?? queueEnabled;
     const withQueue = <R>(work: () => Promise<R>): Promise<R> =>
-      queueEnabled ? queue.add(work, effectiveSignal ? { signal: effectiveSignal } : {}) : work();
+      queueForThisCall ? queue.add(work, effectiveSignal ? { signal: effectiveSignal } : {}) : work();
 
     const method = spec.method.toUpperCase();
     const isGet = method === 'GET';
@@ -590,11 +649,11 @@ export function createClient(config: GlobalConfig): ApiClient {
     const cacheBust = resolved.cache.bust === true;
 
     const emitCacheHit = (key: string, entry: CacheEntry): void => {
-      currentConfig.hooks?.onCacheHit?.(key, entry);
+      resolved.hooks.onCacheHit(key, entry);
       emit('cacheHit', { key, entry });
     };
     const emitCacheMiss = (key: string): void => {
-      currentConfig.hooks?.onCacheMiss?.(key);
+      resolved.hooks.onCacheMiss(key);
       emit('cacheMiss', { key });
     };
     const toCacheResponse = (entry: CacheEntry): ApiResponse<T> => ({
@@ -636,7 +695,10 @@ export function createClient(config: GlobalConfig): ApiClient {
         }),
       );
 
-    try {
+    // Produce the response from cache or network. Extracted so the outer
+    // wrapper can fire onSuccess/onSettled exactly once, regardless of which of
+    // the several return paths (cache-hit, SWR stale, network) produced it.
+    const produce = async (): Promise<ApiResponse<T>> => {
       if (cacheKey && !cacheBust) {
         const entry = cacheStore.get(cacheKey);
 
@@ -674,13 +736,28 @@ export function createClient(config: GlobalConfig): ApiClient {
       }
 
       return await fetchThrough();
+    };
+
+    let settledResponse: ApiResponse<T> | undefined;
+    let settledError: ApiError | undefined;
+    try {
+      const response = await produce();
+      settledResponse = response;
+      await resolved.hooks.onSuccess(response);
+      emit('success', response);
+      return response;
     } catch (caught) {
       // Aborts surface as-is (X4: swallow is the caller's concern); everything
       // else is normalized and reported through hooks/events.
       if (isAbortError(caught)) throw caught;
-      return reportError(toApiError(caught));
+      settledError = toApiError(caught);
+      return reportError(settledError);
     } finally {
       settleCancel();
+      // Fires exactly once per request (success, failure, or abort). Awaited so
+      // async settled-hooks complete before the request promise resolves.
+      await resolved.hooks.onSettled(settledResponse, settledError);
+      emit('settled', { response: settledResponse, error: settledError });
     }
   };
 
@@ -727,10 +804,59 @@ export function createClient(config: GlobalConfig): ApiClient {
     get: (key: string) => cacheStore.get(key),
   };
 
+  const HOOK_NAMES: (keyof LifecycleHooks)[] = [
+    'onRequest',
+    'onResponse',
+    'onError',
+    'onRetry',
+    'onCacheHit',
+    'onCacheMiss',
+    'onSuccess',
+    'onSettled',
+  ];
+
   const configApi: ClientConfigApi = {
     get: () => Object.freeze({ ...currentConfig }),
     update: (patch) => {
       currentConfig = { ...currentConfig, ...patch };
+    },
+    resolve: (moduleName, perCall): ResolvedConfigSnapshot => {
+      const moduleCfg = moduleName ? moduleConfigs[moduleName] : undefined;
+      const r = resolveRequestConfig(currentConfig, moduleCfg, perCall);
+      const hookLayers = [currentConfig.hooks, moduleCfg?.hooks, perCall?.hooks];
+      const hooks = Object.fromEntries(
+        HOOK_NAMES.map((name) => [name, hookLayers.some((l) => typeof l?.[name] === 'function')]),
+      ) as Record<keyof LifecycleHooks, boolean>;
+      // Redacted, JSON-safe snapshot: no token getters, resolvers, predicates,
+      // or hook functions cross this boundary — only their presence.
+      return Object.freeze({
+        baseURL: r.baseURL,
+        timeout: r.timeout,
+        headers: { ...r.headers },
+        auth: { strategy: r.auth.strategy },
+        cache: {
+          enabled: r.cache.enabled,
+          ttl: r.cache.ttl,
+          strategy: r.cache.strategy,
+          maxSize: r.cache.maxSize,
+          ...(r.cache.bust !== undefined ? { bust: r.cache.bust } : {}),
+        },
+        retry: {
+          attempts: r.retry.attempts,
+          backoff: r.retry.backoff,
+          baseDelay: r.retry.baseDelay,
+          maxDelay: r.retry.maxDelay,
+          jitter: r.retry.jitter,
+        },
+        tenancy: { headerName: r.tenancy.headerName },
+        validation: { ...r.validation },
+        skipAuth: r.skipAuth,
+        skipDedup: r.skipDedup,
+        responseType: r.responseType,
+        safeMode: r.safeMode,
+        ...(r.queue !== undefined ? { queue: r.queue } : {}),
+        hooks,
+      });
     },
   };
 
