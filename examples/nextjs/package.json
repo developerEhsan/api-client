@@ -10,11 +10,11 @@
   },
   "dependencies": {
     "next": "16.2.10",
-    "react": "19.2.4",
+    "react": "19.2.7",
     "@developerehsan/api-client": "workspace:*",
     "@developerehsan/api-client-query": "workspace:*",
     "@tanstack/react-query": "^5.101.2",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
     "@developerehsan/api-client-cli": "workspace:*",
