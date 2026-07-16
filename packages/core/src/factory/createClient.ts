@@ -21,7 +21,14 @@ import type {
   ResolvedConfigSnapshot,
 } from '../types/config.types';
 import type { ApiRequest, ApiResponse } from '../types/http.types';
-import type { ModuleContext, ModuleDefinition, ModuleRequestSpec } from '../types/module.types';
+import type {
+  ModuleContext,
+  ModuleDefinition,
+  ModuleLogger,
+  ModuleRequestSpec,
+  OperationOptions,
+  OperationRunner,
+} from '../types/module.types';
 import type { SchemaAST } from '../types/openapi.types';
 
 import { type AuthManager, createAuthManager } from '../auth/authManager';
@@ -30,6 +37,8 @@ import { detectEnvironment } from '../environment/detect';
 import { assertFetchAvailable, resolveAdapterName } from '../environment/edgeSafe';
 import { ApiError } from '../errors/ApiError';
 import { ConfigurationError } from '../errors/ConfigurationError';
+import { NetworkError } from '../errors/NetworkError';
+import { OperationError } from '../errors/OperationError';
 import { SchemaError } from '../errors/SchemaError';
 import { TimeoutError } from '../errors/TimeoutError';
 import { classifyError } from '../errors/errorClassifier';
@@ -46,7 +55,7 @@ import { computeCacheKey, createCache, isFresh } from '../utilities/cache';
 import { createCancellationManager, isAbortError } from '../utilities/cancellation';
 import { computeDedupeKey, createDeduplicator } from '../utilities/deduplicator';
 import { createQueue } from '../utilities/queue';
-import { type ResolvedRetryOptions, withRetry } from '../utilities/retry';
+import { type ResolvedRetryOptions, computeBackoff, withRetry } from '../utilities/retry';
 import { buildUrl, serializeQuery } from '../utilities/urlBuilder';
 import { isModuleDefinition } from './createModule';
 import {
@@ -783,6 +792,224 @@ export function createClient(config: GlobalConfig): ApiClient {
   };
 
   // --- Module proxies ------------------------------------------------------
+  // --- Resolved-config snapshot (shared by client.config.resolve + ctx.config)
+  const HOOK_NAMES: (keyof LifecycleHooks)[] = [
+    'onRequest',
+    'onResponse',
+    'onError',
+    'onRetry',
+    'onCacheHit',
+    'onCacheMiss',
+    'onSuccess',
+    'onSettled',
+  ];
+  const resolveConfigSnapshot = (
+    moduleName?: string,
+    perCall?: PerCallConfig,
+  ): ResolvedConfigSnapshot => {
+    const moduleCfg = moduleName ? moduleConfigs[moduleName] : undefined;
+    const r = resolveRequestConfig(currentConfig, moduleCfg, perCall);
+    const hookLayers = [currentConfig.hooks, moduleCfg?.hooks, perCall?.hooks];
+    const hooks = Object.fromEntries(
+      HOOK_NAMES.map((n) => [n, hookLayers.some((l) => typeof l?.[n] === 'function')]),
+    ) as Record<keyof LifecycleHooks, boolean>;
+    // Redacted, JSON-safe: no token getters, resolvers, predicates, or hook fns.
+    return Object.freeze({
+      baseURL: r.baseURL,
+      timeout: r.timeout,
+      headers: { ...r.headers },
+      auth: { strategy: r.auth.strategy },
+      cache: {
+        enabled: r.cache.enabled,
+        ttl: r.cache.ttl,
+        strategy: r.cache.strategy,
+        maxSize: r.cache.maxSize,
+        ...(r.cache.bust !== undefined ? { bust: r.cache.bust } : {}),
+      },
+      retry: {
+        attempts: r.retry.attempts,
+        backoff: r.retry.backoff,
+        baseDelay: r.retry.baseDelay,
+        maxDelay: r.retry.maxDelay,
+        jitter: r.retry.jitter,
+      },
+      tenancy: { headerName: r.tenancy.headerName },
+      validation: { ...r.validation },
+      skipAuth: r.skipAuth,
+      skipDedup: r.skipDedup,
+      responseType: r.responseType,
+      safeMode: r.safeMode,
+      ...(r.queue !== undefined ? { queue: r.queue } : {}),
+      hooks,
+    });
+  };
+
+  // --- Generic operation runner (ctx.run) ---------------------------------
+  // Shares the client's queue + deduplicator so non-HTTP module work
+  // coordinates with HTTP requests. Safe-by-default: no dedup/retry unless
+  // asked; the queue follows the client setting.
+  const defaultOperationRetryable = (error: unknown): boolean =>
+    error instanceof NetworkError || error instanceof TimeoutError;
+
+  /** Abort-interruptible delay used between operation retries. */
+  const abortableDelay = (ms: number, signal?: AbortSignal): Promise<void> =>
+    new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
+      const onAbort = (): void => {
+        clearTimeout(timer);
+        reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+    });
+
+  /** Resolve the tenant + auth fingerprint used to scope operation dedup keys. */
+  const resolveOperationScope = async (
+    moduleName: string,
+  ): Promise<{ tenantId?: string; fp: string | null }> => {
+    const resolved = resolveRequestConfig(currentConfig, moduleConfigs[moduleName], undefined);
+    const tenantId = await resolveTenantId(
+      typeof resolved.tenancy.getTenantId === 'function'
+        ? { getTenantId: resolved.tenancy.getTenantId }
+        : {},
+    );
+    const fp = await authFingerprint(resolved.auth);
+    return { ...(tenantId ? { tenantId } : {}), fp };
+  };
+
+  const makeOperationRun =
+    (moduleName: string): OperationRunner =>
+    <T>(
+      operationKey: string,
+      execute: (signal?: AbortSignal) => Promise<T>,
+      opts?: OperationOptions,
+    ): Promise<T> => {
+      const attempts = opts?.retry?.attempts ?? 1;
+      const isRetryable = opts?.retry?.isRetryable ?? defaultOperationRetryable;
+      const retryShape: ResolvedRetryOptions = {
+        attempts,
+        backoff: opts?.retry?.backoff ?? 'exponential',
+        baseDelay: opts?.retry?.baseDelay ?? 500,
+        maxDelay: opts?.retry?.maxDelay ?? 30_000,
+        jitter: opts?.retry?.jitter ?? true,
+      };
+
+      const attemptOnce = async (): Promise<T> => {
+        const timeoutMs = opts?.timeout ?? 0;
+        const controller = new AbortController();
+        const external = opts?.signal;
+        let onExternalAbort: (() => void) | undefined;
+        if (external) {
+          if (external.aborted) controller.abort();
+          else {
+            onExternalAbort = () => controller.abort();
+            external.addEventListener('abort', onExternalAbort, { once: true });
+          }
+        }
+        let timedOut = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeoutError = (): TimeoutError =>
+          new TimeoutError({
+            message: `Operation "${moduleName}.${operationKey}" timed out after ${timeoutMs}ms`,
+            timeoutMs,
+          });
+
+        const normalize = (error: unknown): unknown => {
+          // On timeout, always surface TimeoutError even if `execute` rejected
+          // for its own reason after we aborted its signal.
+          if (timedOut) return timeoutError();
+          // Propagate real Errors (incl. ApiError) unchanged; only wrap thrown
+          // non-Error values so callers always catch something Error-shaped.
+          if (error instanceof Error) return error;
+          return new OperationError({
+            message: `Operation "${moduleName}.${operationKey}" failed`,
+            cause: error,
+          });
+        };
+
+        const cleanup = (): void => {
+          if (timer !== undefined) clearTimeout(timer);
+          if (onExternalAbort && external) external.removeEventListener('abort', onExternalAbort);
+        };
+
+        // Race execution against the timeout: `execute` may ignore the abort
+        // signal (arbitrary work), so the timeout promise guarantees rejection.
+        // The signal is still aborted for cooperative cancellation.
+        const work = execute(controller.signal).catch((error: unknown) => {
+          throw normalize(error);
+        });
+        if (timeoutMs <= 0) {
+          try {
+            return await work;
+          } finally {
+            cleanup();
+          }
+        }
+        try {
+          return await Promise.race([
+            work,
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+                reject(timeoutError());
+              }, timeoutMs);
+            }),
+          ]);
+        } finally {
+          cleanup();
+        }
+      };
+
+      const withRetryLoop = async (): Promise<T> => {
+        let attempt = 0;
+        for (;;) {
+          attempt += 1;
+          try {
+            return await attemptOnce();
+          } catch (error) {
+            if (attempt >= attempts || isAbortError(error) || !isRetryable(error)) throw error;
+            await abortableDelay(computeBackoff(attempt, retryShape), opts?.signal);
+          }
+        }
+      };
+
+      const withDedup = async (): Promise<T> => {
+        if (opts?.dedupe !== true) return withRetryLoop();
+        const scope = await resolveOperationScope(moduleName);
+        const key = `op:${moduleName}:${operationKey}:${scope.tenantId ?? ''}:${scope.fp ?? ''}:${JSON.stringify(opts?.keyParts ?? null)}`;
+        return deduplicator.dedupe(key, withRetryLoop);
+      };
+
+      const useQueue = opts?.queue ?? queueEnabled;
+      return useQueue
+        ? queue.add(withDedup, opts?.signal ? { signal: opts.signal } : {})
+        : withDedup();
+    };
+
+  const makeLogger = (moduleName: string): ModuleLogger => {
+    const prefix = `[@developerehsan/api-client:${moduleName}]`;
+    const enabled = logging !== undefined;
+    const verbose = currentConfig.dev?.logging === 'verbose';
+    return {
+      debug: (...args) => {
+        if (verbose) console.debug(prefix, ...args);
+      },
+      info: (...args) => {
+        if (enabled) console.info(prefix, ...args);
+      },
+      warn: (...args) => console.warn(prefix, ...args),
+      error: (...args) => console.error(prefix, ...args),
+    };
+  };
+
+  // --- Module proxies ------------------------------------------------------
   const client: Record<string, unknown> = {};
 
   for (const [name, definition] of Object.entries(moduleDefinitions)) {
@@ -792,8 +1019,12 @@ export function createClient(config: GlobalConfig): ApiClient {
 
     const context: ModuleContext = {
       request: (spec, perCall) => run(spec, { moduleName: name, methodName: 'request' }, perCall),
+      run: makeOperationRun(name),
       client: undefined,
       moduleName: name,
+      emit: (event: string, payload?: unknown) => emit(`module:${name}:${event}`, payload),
+      logger: makeLogger(name),
+      config: () => resolveConfigSnapshot(name),
     };
 
     // TODO(Phase 6): populate auto descriptors from the loaded schema when
@@ -825,59 +1056,13 @@ export function createClient(config: GlobalConfig): ApiClient {
     get: (key: string) => cacheStore.get(key),
   };
 
-  const HOOK_NAMES: (keyof LifecycleHooks)[] = [
-    'onRequest',
-    'onResponse',
-    'onError',
-    'onRetry',
-    'onCacheHit',
-    'onCacheMiss',
-    'onSuccess',
-    'onSettled',
-  ];
-
   const configApi: ClientConfigApi = {
     get: () => Object.freeze({ ...currentConfig }),
     update: (patch) => {
       currentConfig = { ...currentConfig, ...patch };
     },
     resolve: (moduleName, perCall): ResolvedConfigSnapshot => {
-      const moduleCfg = moduleName ? moduleConfigs[moduleName] : undefined;
-      const r = resolveRequestConfig(currentConfig, moduleCfg, perCall);
-      const hookLayers = [currentConfig.hooks, moduleCfg?.hooks, perCall?.hooks];
-      const hooks = Object.fromEntries(
-        HOOK_NAMES.map((name) => [name, hookLayers.some((l) => typeof l?.[name] === 'function')]),
-      ) as Record<keyof LifecycleHooks, boolean>;
-      // Redacted, JSON-safe snapshot: no token getters, resolvers, predicates,
-      // or hook functions cross this boundary — only their presence.
-      return Object.freeze({
-        baseURL: r.baseURL,
-        timeout: r.timeout,
-        headers: { ...r.headers },
-        auth: { strategy: r.auth.strategy },
-        cache: {
-          enabled: r.cache.enabled,
-          ttl: r.cache.ttl,
-          strategy: r.cache.strategy,
-          maxSize: r.cache.maxSize,
-          ...(r.cache.bust !== undefined ? { bust: r.cache.bust } : {}),
-        },
-        retry: {
-          attempts: r.retry.attempts,
-          backoff: r.retry.backoff,
-          baseDelay: r.retry.baseDelay,
-          maxDelay: r.retry.maxDelay,
-          jitter: r.retry.jitter,
-        },
-        tenancy: { headerName: r.tenancy.headerName },
-        validation: { ...r.validation },
-        skipAuth: r.skipAuth,
-        skipDedup: r.skipDedup,
-        responseType: r.responseType,
-        safeMode: r.safeMode,
-        ...(r.queue !== undefined ? { queue: r.queue } : {}),
-        hooks,
-      });
+      return resolveConfigSnapshot(moduleName, perCall);
     },
   };
 

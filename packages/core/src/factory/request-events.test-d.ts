@@ -5,6 +5,7 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import type { ApiClient, ClientEventMap } from './createClient';
 import type { ApiError } from '../errors/ApiError';
+import type { ResolvedConfigSnapshot } from '../types/config.types';
 import type { ApiResponse } from '../types/http.types';
 import type { ExtractPathParams, PathParamsFor } from '../types/path.types';
 import type { ModuleContext } from '../types/module.types';
@@ -67,5 +68,27 @@ describe('typed event map (B3)', () => {
 
   it('falls back to unknown for custom (ctx.emit) events', () => {
     api.on('module:notifications:new', (p) => expectTypeOf(p).toEqualTypeOf<unknown>());
+  });
+});
+
+describe('enriched ModuleContext (D1/D2)', () => {
+  const ctx = undefined as unknown as ModuleContext;
+
+  it('ctx.run infers its result type from execute', () => {
+    expectTypeOf(ctx.run('k', async () => 42)).resolves.toEqualTypeOf<number>();
+    expectTypeOf(ctx.run('k', async () => ({ a: 1 }))).resolves.toEqualTypeOf<{ a: number }>();
+  });
+
+  it('ctx.run execute receives an optional AbortSignal', () => {
+    ctx.run('k', async (signal) => {
+      expectTypeOf(signal).toEqualTypeOf<AbortSignal | undefined>();
+      return 1;
+    });
+  });
+
+  it('ctx.emit / ctx.logger / ctx.config are typed', () => {
+    expectTypeOf(ctx.emit).parameters.toEqualTypeOf<[string, unknown?]>();
+    expectTypeOf(ctx.logger.warn).toEqualTypeOf<(...args: unknown[]) => void>();
+    expectTypeOf(ctx.config()).toEqualTypeOf<ResolvedConfigSnapshot>();
   });
 });
