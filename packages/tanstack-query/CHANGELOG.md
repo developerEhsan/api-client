@@ -1,5 +1,18 @@
 # @developerehsan/api-client-query
 
+## 0.2.1
+
+### Patch Changes
+
+- docs: add per-package README + LICENSE and enrich npm metadata
+
+  Each published package now ships its own `README.md` (so the docs render on the
+  npm package page) and a bundled `LICENSE`. Package descriptions and keywords were
+  expanded for better npm search discoverability. No runtime changes.
+
+- Updated dependencies []:
+  - @developerehsan/api-client@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
