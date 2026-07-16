@@ -10,6 +10,7 @@ export type {
   ClientCache,
   ClientConfigApi,
   ClientEventListener,
+  ClientEventMap,
 } from './factory/createClient';
 export { defineModule } from './factory/createModule';
 export {

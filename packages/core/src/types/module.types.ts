@@ -4,6 +4,7 @@
 
 import type { ModuleConfig, PerCallConfig } from './config.types';
 import type { ApiRequest, ApiResponse } from './http.types';
+import type { PathParamsFor } from './path.types';
 
 /**
  * The context handed to every custom module method. Provides a `request`
@@ -11,14 +12,36 @@ import type { ApiRequest, ApiResponse } from './http.types';
  * composed calls.
  */
 export interface ModuleContext {
-  /** Execute a raw request through the full lifecycle pipeline. */
-  request<T = unknown>(spec: ModuleRequestSpec, perCall?: PerCallConfig): Promise<ApiResponse<T>>;
+  /**
+   * Execute a raw request through the full lifecycle pipeline.
+   *
+   * `pathParams` is inferred from the literal `path`: a path with `{placeholders}`
+   * REQUIRES exactly those keys (a missing/typo'd one is a compile error), while
+   * a placeholder-free path forbids them. Non-literal (dynamic) paths fall back
+   * to the loose record. The response type `T` is specified explicitly; the path
+   * type is inferred, so `ctx.request<Invoice>({ method, path, pathParams })`
+   * keeps working.
+   */
+  request<T = unknown, const P extends string = string>(
+    spec: ModuleRequestSpecFor<P>,
+    perCall?: PerCallConfig,
+  ): Promise<ApiResponse<T>>;
   /** Access the whole client for composed cross-module calls. */
   readonly client: unknown;
   /** The resolved name of this module. */
   readonly moduleName: string;
 }
 
+/** A request spec whose `pathParams` are constrained by the literal path `P`. */
+export type ModuleRequestSpecFor<P extends string> = {
+  method: ApiRequest['method'];
+  /** Path template, e.g. `/invoices/{id}`. */
+  path: P;
+  query?: Record<string, unknown>;
+  body?: unknown;
+} & PathParamsFor<P>;
+
+/** The loose, non-path-constrained request spec (dynamic paths). */
 export interface ModuleRequestSpec {
   method: ApiRequest['method'];
   /** Path template, e.g. `/invoices/{id}`. */

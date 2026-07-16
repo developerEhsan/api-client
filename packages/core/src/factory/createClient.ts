@@ -80,6 +80,20 @@ export interface ClientConfigApi {
 export type ClientEventListener = (payload: unknown) => void;
 
 /**
+ * Typed payloads for the built-in lifecycle events. Custom events emitted via
+ * `ctx.emit` are namespaced strings and fall through the string overload.
+ */
+export interface ClientEventMap {
+  request: ApiRequest;
+  response: ApiResponse<unknown>;
+  error: ApiError;
+  cacheHit: { key: string; entry: CacheEntry };
+  cacheMiss: { key: string };
+  success: ApiResponse<unknown>;
+  settled: { response: ApiResponse<unknown> | undefined; error: ApiError | undefined };
+}
+
+/**
  * The client surface. Modules are dynamically added string keys; the reserved
  * utility members below always take precedence.
  */
@@ -88,7 +102,14 @@ export interface ApiClient {
   readonly config: ClientConfigApi;
   setEnvironment(name: string): void;
   getSchema(): SchemaAST | undefined;
+  /** Subscribe to a built-in lifecycle event (payload typed by {@link ClientEventMap}). */
+  on<K extends keyof ClientEventMap>(event: K, listener: (payload: ClientEventMap[K]) => void): void;
+  /** Subscribe to a custom (e.g. `ctx.emit`) event. */
   on(event: string, listener: ClientEventListener): void;
+  off<K extends keyof ClientEventMap>(
+    event: K,
+    listener: (payload: ClientEventMap[K]) => void,
+  ): void;
   off(event: string, listener: ClientEventListener): void;
   [module: string]: unknown;
 }
