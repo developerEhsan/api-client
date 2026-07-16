@@ -14,12 +14,7 @@
   "bugs": {
     "url": "https://github.com/developerEhsan/api-client/issues"
   },
-  "keywords": [
-    "api-client",
-    "openapi",
-    "codegen",
-    "cli"
-  ],
+  "keywords": ["api-client", "openapi", "codegen", "cli"],
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -31,9 +26,7 @@
   "bin": {
     "developerEhsan-api-client": "./dist/cli.js"
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "test": "vitest run --passWithNoTests",

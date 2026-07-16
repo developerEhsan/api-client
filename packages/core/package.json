@@ -13,16 +13,7 @@
   "bugs": {
     "url": "https://github.com/developerEhsan/api-client/issues"
   },
-  "keywords": [
-    "api-client",
-    "typescript",
-    "openapi",
-    "codegen",
-    "fetch",
-    "axios",
-    "ssr",
-    "rpc"
-  ],
+  "keywords": ["api-client", "typescript", "openapi", "codegen", "fetch", "axios", "ssr", "rpc"],
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -32,9 +23,7 @@
     "access": "public",
     "provenance": true
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
