@@ -25,7 +25,7 @@ export const q = createQueryIntegration(api, {
   modules: rpcModules,
   // DummyJSON paginates by `skip`; advance it by the page size until `total`.
   pageParamName: 'skip',
-  getNextPageParam: (lastPage: unknown): number | undefined => {
+  getNextPageParam: (lastPage): number | undefined => {
     const p = lastPage as Page;
     if (typeof p?.skip !== 'number' || typeof p?.limit !== 'number' || typeof p?.total !== 'number')
       return undefined;
