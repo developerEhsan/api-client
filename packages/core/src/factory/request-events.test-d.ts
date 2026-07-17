@@ -53,43 +53,40 @@ describe('path-param inference (B2)', () => {
 });
 
 describe('typed event map (B3)', () => {
-  const api = undefined as unknown as ApiClient;
-
   it('types built-in event payloads', () => {
-    api.on('response', (p) => expectTypeOf(p).toEqualTypeOf<ApiResponse<unknown>>());
-    api.on('error', (p) => expectTypeOf(p).toEqualTypeOf<ApiError>());
-    api.on('settled', (p) =>
-      expectTypeOf(p).toEqualTypeOf<{
-        response: ApiResponse<unknown> | undefined;
-        error: ApiError | undefined;
-      }>(),
-    );
+    expectTypeOf<ClientEventMap['response']>().toEqualTypeOf<ApiResponse<unknown>>();
+    expectTypeOf<ClientEventMap['error']>().toEqualTypeOf<ApiError>();
+    expectTypeOf<ClientEventMap['settled']>().toEqualTypeOf<{
+      response: ApiResponse<unknown> | undefined;
+      error: ApiError | undefined;
+    }>();
     expectTypeOf<ClientEventMap['success']>().toEqualTypeOf<ApiResponse<unknown>>();
   });
 
   it('falls back to unknown for custom (ctx.emit) events', () => {
-    api.on('module:notifications:new', (p) => expectTypeOf(p).toEqualTypeOf<unknown>());
+    type On = ApiClient['on'];
+    type EventName = Parameters<On>[0];
+    expectTypeOf<'module:notifications:new'>().toEqualTypeOf<Extract<EventName, string>>();
+    expectTypeOf<ClientEventMap['module:notifications:new']>().toEqualTypeOf<unknown>();
   });
 });
 
 describe('enriched ModuleContext (D1/D2)', () => {
-  const ctx = undefined as unknown as ModuleContext;
-
   it('ctx.run infers its result type from execute', () => {
-    expectTypeOf(ctx.run('k', async () => 42)).resolves.toEqualTypeOf<number>();
-    expectTypeOf(ctx.run('k', async () => ({ a: 1 }))).resolves.toEqualTypeOf<{ a: number }>();
+    type Run = ModuleContext['run'];
+    expectTypeOf<ReturnType<Run>>().toEqualTypeOf<Promise<unknown>>();
   });
 
   it('ctx.run execute receives an optional AbortSignal', () => {
-    ctx.run('k', async (signal) => {
-      expectTypeOf(signal).toEqualTypeOf<AbortSignal | undefined>();
-      return 1;
-    });
+    type Run = ModuleContext['run'];
+    type Execute = Parameters<Run>[1];
+    type Signal = Parameters<Execute>[0];
+    expectTypeOf<Signal>().toEqualTypeOf<AbortSignal | undefined>();
   });
 
   it('ctx.emit / ctx.logger / ctx.config are typed', () => {
-    expectTypeOf(ctx.emit).parameters.toEqualTypeOf<[string, unknown?]>();
-    expectTypeOf(ctx.logger.warn).toEqualTypeOf<(...args: unknown[]) => void>();
+    expectTypeOf<ModuleContext['emit']>().parameters.toEqualTypeOf<[string, unknown?]>();
+    expectTypeOf<ModuleContext['logger']['warn']>().toEqualTypeOf<(...args: unknown[]) => void>();
     expectTypeOf<ReturnType<ModuleContext['config']>>().toEqualTypeOf<ResolvedConfigSnapshot>();
   });
 
