@@ -36,8 +36,8 @@ describe('config & hooks types', () => {
   });
 
   it('config.resolve returns a redacted snapshot with a hook presence map', () => {
-    const resolve = (undefined as unknown as ApiClient)['config'].resolve;
-    expectTypeOf(resolve).returns.toEqualTypeOf<ResolvedConfigSnapshot>();
+    type Resolve = ApiClient['config']['resolve'];
+    expectTypeOf<Resolve>().returns.toEqualTypeOf<ResolvedConfigSnapshot>();
     expectTypeOf<ResolvedConfigSnapshot['auth']>().toEqualTypeOf<{
       strategy: import('../types/auth.types').AuthConfig['strategy'];
     }>();
