@@ -31,16 +31,26 @@ export interface CodegenConfig {
 }
 
 /**
- * Identity helper for authoring a typed config file:
+ * Identity helper for authoring a typed config file. Once present, the CLI and
+ * the Vite/Next integrations pick it up with no flags.
  *
- * ```ts
+ * @example
  * // api-client.config.ts
  * import { defineCodegenConfig } from '@developerehsan/api-client/codegen'
+ *
  * export default defineCodegenConfig({
  *   input: process.env.OPENAPI_URL ?? './openapi.json',
  *   output: './src/generated',
+ *   baseURL: 'https://api.example.com',
+ *   // headers sourced from env; sent when `input` is a URL, never logged/emitted:
+ *   headers: { Authorization: `Bearer ${process.env.SPEC_TOKEN}` },
  * })
- * ```
+ *
+ * @example
+ * // then, with zero flags:
+ * //   npx @developerehsan/api-client generate
+ * //   npx @developerehsan/api-client generate --watch
+ * //   npx @developerehsan/api-client generate --check   # CI: fail if stale
  */
 export function defineCodegenConfig(config: CodegenConfig): CodegenConfig {
   return config;

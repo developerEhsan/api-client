@@ -93,12 +93,27 @@ export function createMemoryRateLimitStore(maxKeys = 10_000): SyncRateLimitStore
 }
 
 /**
- * Create a rate limiter. Wire it as the handler's `onRequest`:
+ * Create a rate limiter. Wire it as the handler's `onRequest` (it throws to
+ * reject a request over budget).
  *
- * ```ts
- * const limiter = createRateLimiter({ windowMs: 60_000, max: 100 })
- * createRpcHandler(api, { expose, onRequest: limiter.onRequest })
- * ```
+ * @example
+ * // 100 requests/minute, keyed per session cookie:
+ * import { createRateLimiter, createRpcHandler } from '@developerehsan/api-client/server'
+ *
+ * const limiter = createRateLimiter({
+ *   windowMs: 60_000,
+ *   max: 100,
+ *   keyFor: async (ctx) => (await ctx.getCookie?.('session')) ?? 'anon',
+ * })
+ * export const handler = createRpcHandler(api, { expose, onRequest: limiter.onRequest })
+ *
+ * @example
+ * // Per-IP behind a trusted proxy (honors X-Forwarded-For only when trustProxy):
+ * const limiter = createRateLimiter({ windowMs: 10_000, max: 30, trustProxy: true })
+ *
+ * @example
+ * // Custom (e.g. Redis-backed) store:
+ * const limiter = createRateLimiter({ windowMs: 60_000, max: 100, store: myRedisStore })
  */
 export function createRateLimiter(options: RateLimiterOptions): RateLimiter {
   const { windowMs, max, trustProxy = false } = options;

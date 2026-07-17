@@ -43,7 +43,18 @@ function banner(ast: SchemaAST, opts: EmitHooksOptions): string {
   return lines.join('\n');
 }
 
-/** Emit the source for `generated/api.hooks.ts`. */
+/**
+ * Emit the source for `generated/api.hooks.ts`.
+ *
+ * @example
+ * import { parseOpenApi, emitReactQueryHooks } from '@developerehsan/api-client/codegen'
+ * import { readFileSync, writeFileSync } from 'node:fs'
+ *
+ * const ast = parseOpenApi(JSON.parse(readFileSync('./openapi.json', 'utf8')))
+ * const src = emitReactQueryHooks(ast, { integrationImport: './query' })
+ * writeFileSync('./src/generated/api.hooks.ts', src)
+ * // -> export function useProductsGetProductById(params, options) { ... useQuery(...) }
+ */
 export function emitReactQueryHooks(ast: SchemaAST, opts: EmitHooksOptions = {}): string {
   const integrationImport = opts.integrationImport ?? './query';
   const reactQueryImport = opts.reactQueryImport ?? '@tanstack/react-query';

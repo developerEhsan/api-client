@@ -34,6 +34,24 @@ function isHttpUrl(input: string): boolean {
  * Start watching `config.input` and regenerating into `config.output`. Performs
  * one initial generation immediately, then watches. Returns a controller whose
  * `close()` stops watching and cancels any pending work.
+ *
+ * @example
+ * import { watchAndGenerate } from '@developerehsan/api-client/codegen'
+ *
+ * const watcher = watchAndGenerate(
+ *   { input: './openapi.json', output: './src/generated' },
+ *   { onChange: (diff) => console.log(`+${diff.addedOperations.length} operations`) },
+ * )
+ * // …later
+ * watcher.close()
+ *
+ * @example
+ * // Poll a remote spec every 15s (ETag/hash-aware, so unchanged specs are free):
+ * watchAndGenerate({
+ *   input: 'https://api.example.com/openapi.json',
+ *   output: './src/generated',
+ *   watch: { pollIntervalMs: 15_000 },
+ * })
  */
 export function watchAndGenerate(
   config: CodegenConfig,

@@ -11,7 +11,18 @@ export type { PersistentCacheStore } from './store.types';
 export { isCacheEntry } from './store.types';
 export { createLayeredCacheStore } from './layered';
 
-/** In-memory persistent store (Map-backed). Handy for tests and SSR warm-up. */
+/**
+ * In-memory persistent store (Map-backed). Handy for tests and SSR warm-up.
+ *
+ * @example
+ * import { createClient } from '@developerehsan/api-client'
+ * import { createMemoryPersistentStore } from '@developerehsan/api-client/cache-stores'
+ *
+ * const api = createClient({
+ *   baseURL, openapi: { mode: 'runtime' },
+ *   cache: { persistentStore: createMemoryPersistentStore() },
+ * })
+ */
 export function createMemoryPersistentStore(): PersistentCacheStore {
   const map = new Map<string, CacheEntry>();
   return {
@@ -42,6 +53,15 @@ export interface IndexedDbStoreOptions {
 /**
  * A browser IndexedDB-backed persistent store. No-ops (resolving empty) when
  * `indexedDB` is unavailable, so it is safe to construct in any environment.
+ *
+ * @example
+ * import { createIndexedDbStore } from '@developerehsan/api-client/cache-stores'
+ *
+ * const api = createClient({
+ *   baseURL, openapi: { mode: 'runtime' },
+ *   // GET responses survive reloads; warmed into the in-memory L1 on demand.
+ *   cache: { persistentStore: createIndexedDbStore({ dbName: 'my-app-cache' }) },
+ * })
  */
 export function createIndexedDbStore(options: IndexedDbStoreOptions = {}): PersistentCacheStore {
   const dbName = options.dbName ?? 'developerehsan-api-cache';
@@ -107,6 +127,17 @@ export interface RedisStoreOptions {
  * per-entry TTL (`expiresAt`) is applied via Redis `PX` so stale entries expire
  * server-side too. `clear()` is a no-op (namespace-wide deletion needs SCAN,
  * which varies by client) — delete keys individually or flush your namespace.
+ *
+ * @example
+ * import { createClient as createRedis } from 'redis'
+ * import { createRedisStore } from '@developerehsan/api-client/cache-stores'
+ *
+ * const redis = createRedis({ url: process.env.REDIS_URL })
+ * await redis.connect()
+ * const api = createClient({
+ *   baseURL, openapi: { mode: 'runtime' },
+ *   cache: { persistentStore: createRedisStore(redis, { keyPrefix: 'myapp:' }) },
+ * })
  */
 export function createRedisStore(
   client: RedisLikeClient,

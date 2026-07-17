@@ -65,7 +65,20 @@ export async function* iterateLines(
   }
 }
 
-/** Iterate newline-delimited JSON (NDJSON), yielding each parsed value. */
+/**
+ * Iterate newline-delimited JSON (NDJSON), yielding each parsed value.
+ *
+ * @example
+ * // Inside a module method, stream a chat/completions-style NDJSON endpoint:
+ * chat: async (ctx, prompt: string) => {
+ *   for await (const chunk of ctx.stream<{ token: string }>(
+ *     { method: 'POST', path: '/chat', body: { prompt } },
+ *     { mode: 'ndjson' },
+ *   )) {
+ *     process.stdout.write(chunk.token)
+ *   }
+ * }
+ */
 export async function* parseNdjson<T = unknown>(
   stream: ReadableStream<Uint8Array>,
   signal?: AbortSignal,
@@ -81,6 +94,14 @@ export async function* parseNdjson<T = unknown>(
  * Iterate a Server-Sent Events stream (`text/event-stream`), yielding one
  * {@link SseEvent} per event block (separated by a blank line). Comment lines
  * (starting `:`) are ignored.
+ *
+ * @example
+ * for await (const ev of ctx.stream<SseEvent>(
+ *   { method: 'GET', path: '/events' },
+ *   { mode: 'sse' },
+ * )) {
+ *   if (ev.event === 'price') console.log(JSON.parse(ev.data))
+ * }
  */
 export async function* parseSse(
   stream: ReadableStream<Uint8Array>,
