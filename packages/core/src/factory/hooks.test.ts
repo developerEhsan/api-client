@@ -131,7 +131,8 @@ describe('hook composition through the pipeline', () => {
     const { api, mock } = createMockClient({
       hooks: {
         onSuccess: () => void events.push('success'),
-        onSettled: (r, e) => void events.push(`settled:${r ? 'res' : 'none'}:${e ? 'err' : 'none'}`),
+        onSettled: (r, e) =>
+          void events.push(`settled:${r ? 'res' : 'none'}:${e ? 'err' : 'none'}`),
       },
       modules: things,
     });

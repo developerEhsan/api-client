@@ -5,14 +5,14 @@
  * file is the integration safety net that proves the pieces work together.
  */
 import { describe, expect, it, vi } from 'vitest';
+import { createRpcClient } from './browser/createRpcClient';
+import { serverActionTransport } from './browser/transports';
+import { createMemoryPersistentStore } from './cache-stores/index';
 import { ApiError } from './errors/ApiError';
 import { AuthError } from './errors/AuthError';
 import { TimeoutError } from './errors/TimeoutError';
-import { createRpcClient } from './browser/createRpcClient';
-import { serverActionTransport } from './browser/transports';
 import { createRpcHandler } from './server/createRpcHandler';
 import { createRateLimiter } from './server/rateLimit';
-import { createMemoryPersistentStore } from './cache-stores/index';
 import { createMockClient } from './testing/createMockClient';
 import type { MockAdapter, MockResponse } from './testing/mockAdapter';
 import type { GlobalConfig, PerCallConfig } from './types/config.types';
@@ -251,7 +251,9 @@ describe('E2E · caching', () => {
   it('persistentStore receives write-through on a cached GET', async () => {
     const l2 = createMemoryPersistentStore();
     const setSpy = vi.spyOn(l2, 'set');
-    const { api, mock } = make({ cache: { strategy: 'cache-first', ttl: 60_000, persistentStore: l2 } });
+    const { api, mock } = make({
+      cache: { strategy: 'cache-first', ttl: 60_000, persistentStore: l2 },
+    });
     mock.on('GET', '/things/1', { data: { id: '1' } });
     await api.things.get('1');
     await Promise.resolve();
@@ -344,7 +346,9 @@ describe('E2E · safeMode', () => {
     mock.on('GET', '/things/ok', { data: { id: 'ok' } });
     mock.on('GET', '/things/bad', { status: 500, data: { message: 'x' } });
     const api = raw as unknown as {
-      things: { get: (id: string) => Promise<{ success: boolean; data?: unknown; error?: unknown }> };
+      things: {
+        get: (id: string) => Promise<{ success: boolean; data?: unknown; error?: unknown }>;
+      };
     };
     const good = await api.things.get('ok');
     expect(good).toMatchObject({ success: true, data: { id: 'ok' } });
@@ -371,7 +375,10 @@ describe('E2E · ctx.run', () => {
                 'compute',
                 async () => {
                   tries++;
-                  if (tries < 2) throw new (await import('./errors/NetworkError')).NetworkError({ message: 'flaky' });
+                  if (tries < 2)
+                    throw new (await import('./errors/NetworkError')).NetworkError({
+                      message: 'flaky',
+                    });
                   return tries;
                 },
                 { retry: { attempts: 3, baseDelay: 0, maxDelay: 0, jitter: false } },
@@ -403,7 +410,8 @@ describe('E2E · RPC bridge', () => {
       pet: {
         getPetById: (input: { pathParams: { petId: number } }) =>
           Promise.resolve({ id: input.pathParams.petId }),
-        deletePet: () => Promise.reject(new AuthError({ message: 'no', status: 401, code: 'unauthorized' })),
+        deletePet: () =>
+          Promise.reject(new AuthError({ message: 'no', status: 401, code: 'unauthorized' })),
       },
     };
     const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
@@ -443,9 +451,17 @@ describe('E2E · RPC bridge', () => {
 
   it('enforces the rate limiter (429 rehydrated as ApiError)', async () => {
     const { handler } = makeBridge(true);
-    const first = await handler.handle({ module: 'pet', method: 'getPetById', args: [{ pathParams: { petId: 1 } }] });
+    const first = await handler.handle({
+      module: 'pet',
+      method: 'getPetById',
+      args: [{ pathParams: { petId: 1 } }],
+    });
     expect(first.ok).toBe(true);
-    const second = await handler.handle({ module: 'pet', method: 'getPetById', args: [{ pathParams: { petId: 1 } }] });
+    const second = await handler.handle({
+      module: 'pet',
+      method: 'getPetById',
+      args: [{ pathParams: { petId: 1 } }],
+    });
     expect(second.ok).toBe(false);
     if (!second.ok) expect(second.error.status).toBe(429);
   });

@@ -3,13 +3,13 @@
  * Compile-only.
  */
 import { describe, expectTypeOf, it } from 'vitest';
-import type { ApiClient, ClientEventMap } from './createClient';
-import type { TypedModuleContext } from './createTypedClient';
 import type { ApiError } from '../errors/ApiError';
 import type { ResolvedConfigSnapshot } from '../types/config.types';
 import type { ApiResponse } from '../types/http.types';
-import type { ExtractPathParams, PathParamsFor } from '../types/path.types';
 import type { ModuleContext } from '../types/module.types';
+import type { ExtractPathParams, PathParamsFor } from '../types/path.types';
+import type { ApiClient, ClientEventMap } from './createClient';
+import type { TypedModuleContext } from './createTypedClient';
 
 describe('path-param inference (B2)', () => {
   it('extracts placeholder names from a path template', () => {

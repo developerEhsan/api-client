@@ -83,8 +83,8 @@ export const api = createTypedClient<OperationsMap>()(
           // Custom login that ALSO persists the token, then returns the user.
           // `ctx.request` autocompletes the known path and derives the body type.
           login: async (ctx, body: OperationsMap['login']['body']) => {
-            const user = (await ctx.request({ method: 'POST', path: '/auth/login', body })).data as
-              OperationsMap['login']['response'];
+            const user = (await ctx.request({ method: 'POST', path: '/auth/login', body }))
+              .data as OperationsMap['login']['response'];
             tokenStore.access = user.accessToken ?? null;
             return user;
           },

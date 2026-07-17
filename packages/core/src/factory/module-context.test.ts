@@ -29,13 +29,15 @@ function clientWithCtx() {
     },
   });
   void captured;
-  return { api: api as unknown as {
-    on: (event: string, listener: (payload: unknown) => void) => void;
-    tasks: {
-      expose: () => Promise<ModuleContext>;
-      runOp: <T>(key: string, fn: (s?: AbortSignal) => Promise<T>, opts?: unknown) => Promise<T>;
-    };
-  } };
+  return {
+    api: api as unknown as {
+      on: (event: string, listener: (payload: unknown) => void) => void;
+      tasks: {
+        expose: () => Promise<ModuleContext>;
+        runOp: <T>(key: string, fn: (s?: AbortSignal) => Promise<T>, opts?: unknown) => Promise<T>;
+      };
+    },
+  };
 }
 
 describe('ctx.run — generic operation runner', () => {
@@ -162,7 +164,9 @@ describe('ctx.run dedup key isolation (S21 — no cross-tenant/auth sharing)', (
         },
       },
     });
-    return api as unknown as { tasks: { runOp: (key: string, fn: () => Promise<unknown>) => Promise<unknown> } };
+    return api as unknown as {
+      tasks: { runOp: (key: string, fn: () => Promise<unknown>) => Promise<unknown> };
+    };
   }
 
   it('does NOT collapse identical concurrent ops issued under different tenants/auth', async () => {

@@ -13,7 +13,15 @@
   "bugs": {
     "url": "https://github.com/developerEhsan/api-client/issues"
   },
-  "keywords": ["api-client", "vite", "vite-plugin", "openapi", "codegen", "tanstack-start", "typescript"],
+  "keywords": [
+    "api-client",
+    "vite",
+    "vite-plugin",
+    "openapi",
+    "codegen",
+    "tanstack-start",
+    "typescript"
+  ],
   "type": "module",
   "sideEffects": false,
   "engines": {

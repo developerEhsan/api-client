@@ -731,7 +731,13 @@ export interface ResolvedConfigSnapshot {
     maxSize?: number;
     bust?: boolean;
   };
-  retry: { attempts: number; backoff: string; baseDelay: number; maxDelay: number; jitter: boolean };
+  retry: {
+    attempts: number;
+    backoff: string;
+    baseDelay: number;
+    maxDelay: number;
+    jitter: boolean;
+  };
   tenancy: { headerName?: string };
   validation: ValidationConfig;
   skipAuth: boolean;

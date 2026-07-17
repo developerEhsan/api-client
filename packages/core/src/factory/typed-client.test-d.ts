@@ -57,7 +57,9 @@ describe('createTypedClient — generated modules', () => {
 
   it('routes `body` operations through the `body` key', () => {
     expectTypeOf(api.store.placeOrder).parameter(0).toMatchTypeOf<{ body: Order }>();
-    expectTypeOf(api.store.placeOrder({ body: { id: 1, petId: 2 } })).resolves.toEqualTypeOf<Order>();
+    expectTypeOf(
+      api.store.placeOrder({ body: { id: 1, petId: 2 } }),
+    ).resolves.toEqualTypeOf<Order>();
   });
 });
 

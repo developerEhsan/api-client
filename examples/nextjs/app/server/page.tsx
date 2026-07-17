@@ -19,7 +19,11 @@ export default async function ServerPage() {
   let body: string;
   try {
     const list = await api.products.listProducts({ limit: 5 });
-    body = JSON.stringify(list.products.map((p) => p.title), null, 2);
+    body = JSON.stringify(
+      list.products.map((p) => p.title),
+      null,
+      2,
+    );
   } catch (error) {
     body =
       error instanceof ApiError
@@ -38,7 +42,8 @@ export default async function ServerPage() {
           <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800">
             await api.products.listProducts()
           </code>
-          . No bridge, no client JS required for this call. The request never touches the browser, keeping base URLs and paths completely secure.
+          . No bridge, no client JS required for this call. The request never touches the browser,
+          keeping base URLs and paths completely secure.
         </p>
       </div>
 
@@ -46,7 +51,7 @@ export default async function ServerPage() {
         <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
           <h2 className="font-semibold text-slate-800">Server Rendered Output</h2>
         </div>
-        
+
         <div className="p-6">
           <pre className="max-h-96 overflow-x-auto rounded-lg bg-slate-50 p-4 font-mono text-sm text-slate-800 shadow-inner border border-slate-100">
             {body}

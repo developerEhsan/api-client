@@ -5,8 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import { ConfigurationError } from '../errors/ConfigurationError';
 import type { HttpAdapter } from '../http/adapters/adapterInterface';
-import { createClient } from './createClient';
 import type { ModuleContext, SseEvent } from '../index';
+import { createClient } from './createClient';
 
 const enc = new TextEncoder();
 function streamOf(...chunks: string[]): ReadableStream<Uint8Array> {
@@ -19,7 +19,10 @@ function streamOf(...chunks: string[]): ReadableStream<Uint8Array> {
 }
 
 /** A stream-capable adapter that records the request and replays fixed chunks. */
-function streamAdapter(chunks: string[], status = 200): { adapter: HttpAdapter; seen: () => string } {
+function streamAdapter(
+  chunks: string[],
+  status = 200,
+): { adapter: HttpAdapter; seen: () => string } {
   let url = '';
   const adapter: HttpAdapter = {
     send: () => Promise.reject(new Error('send not used')),
@@ -80,7 +83,9 @@ describe('ctx.stream', () => {
     const { adapter } = streamAdapter(['data: a\n\n', 'data: b\n\n']);
     const { api } = clientWith(adapter);
     const ctx = await api.feed.grab();
-    const events = await collect(ctx.stream<SseEvent>({ method: 'GET', path: '/sse' }, { mode: 'sse' }));
+    const events = await collect(
+      ctx.stream<SseEvent>({ method: 'GET', path: '/sse' }, { mode: 'sse' }),
+    );
     expect(events).toEqual([{ data: 'a' }, { data: 'b' }]);
   });
 

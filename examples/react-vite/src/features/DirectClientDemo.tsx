@@ -66,7 +66,11 @@ export function DirectClientDemo() {
       <div className="toolbar">
         <label>
           Search&nbsp;
-          <input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="phone, laptop…" />
+          <input
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            placeholder="phone, laptop…"
+          />
         </label>
         <Button onClick={() => load(term)}>Reload</Button>
         {loading ? <Spinner /> : null}
@@ -81,11 +85,15 @@ export function DirectClientDemo() {
             <div className="card__title">
               {p.title} <StatusBadge status={p.category} />
             </div>
-            <div className="muted">#{p.id} · ${p.price}</div>
+            <div className="muted">
+              #{p.id} · ${p.price}
+            </div>
             {p.brand ? <div className="chip">{p.brand}</div> : null}
           </button>
         ))}
-        {!loading && products.length === 0 ? <p className="muted">No products for “{term}”.</p> : null}
+        {!loading && products.length === 0 ? (
+          <p className="muted">No products for “{term}”.</p>
+        ) : null}
       </div>
 
       {selected ? (

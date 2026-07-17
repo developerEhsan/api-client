@@ -20,14 +20,31 @@
         "tags": ["products"],
         "summary": "List products (paginated via limit/skip).",
         "parameters": [
-          { "name": "limit", "in": "query", "schema": { "type": "integer" }, "description": "Page size." },
-          { "name": "skip", "in": "query", "schema": { "type": "integer" }, "description": "Offset." },
-          { "name": "select", "in": "query", "schema": { "type": "string" }, "description": "Comma-separated fields." }
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer" },
+            "description": "Page size."
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": { "type": "integer" },
+            "description": "Offset."
+          },
+          {
+            "name": "select",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Comma-separated fields."
+          }
         ],
         "responses": {
           "200": {
             "description": "A page of products.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProductList" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ProductList" } }
+            }
           }
         }
       }
@@ -45,7 +62,9 @@
         "responses": {
           "200": {
             "description": "Matching products.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProductList" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ProductList" } }
+            }
           }
         }
       }
@@ -58,7 +77,11 @@
         "responses": {
           "200": {
             "description": "Category list.",
-            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Category" } } } }
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Category" } }
+              }
+            }
           }
         }
       }
@@ -68,11 +91,15 @@
         "operationId": "getProductById",
         "tags": ["products"],
         "summary": "Fetch one product by id.",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
         "responses": {
           "200": {
             "description": "The product.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Product" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Product" } }
+            }
           },
           "404": { "description": "Not found." }
         }
@@ -81,15 +108,21 @@
         "operationId": "updateProduct",
         "tags": ["products"],
         "summary": "Update a product (simulated).",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProductInput" } } }
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ProductInput" } }
+          }
         },
         "responses": {
           "200": {
             "description": "The updated product.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Product" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Product" } }
+            }
           }
         }
       },
@@ -97,11 +130,15 @@
         "operationId": "deleteProduct",
         "tags": ["products"],
         "summary": "Delete a product (simulated).",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
         "responses": {
           "200": {
             "description": "The deleted product (with isDeleted).",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Product" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Product" } }
+            }
           }
         }
       }
@@ -113,12 +150,16 @@
         "summary": "Add a product (simulated).",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProductInput" } } }
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/ProductInput" } }
+          }
         },
         "responses": {
           "201": {
             "description": "The created product.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Product" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/Product" } }
+            }
           }
         }
       }
@@ -130,12 +171,16 @@
         "summary": "Exchange credentials for an access token.",
         "requestBody": {
           "required": true,
-          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginInput" } } }
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/LoginInput" } }
+          }
         },
         "responses": {
           "200": {
             "description": "The authenticated user plus tokens.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthUser" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/AuthUser" } }
+            }
           }
         }
       }
@@ -167,7 +212,9 @@
         "responses": {
           "200": {
             "description": "A page of users.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserList" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/UserList" } }
+            }
           }
         }
       }
@@ -177,7 +224,9 @@
         "operationId": "getUserById",
         "tags": ["users"],
         "summary": "Fetch one user by id.",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
         "responses": {
           "200": {
             "description": "The user.",
@@ -198,7 +247,9 @@
         "responses": {
           "200": {
             "description": "A page of posts.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PostList" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/PostList" } }
+            }
           }
         }
       }
@@ -208,7 +259,9 @@
         "operationId": "getPostById",
         "tags": ["posts"],
         "summary": "Fetch one post by id.",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
         "responses": {
           "200": {
             "description": "The post.",
@@ -229,7 +282,9 @@
         "responses": {
           "200": {
             "description": "A page of carts.",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CartList" } } }
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/CartList" } }
+            }
           }
         }
       }
@@ -239,7 +294,9 @@
         "operationId": "getCartById",
         "tags": ["carts"],
         "summary": "Fetch one cart by id.",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
         "responses": {
           "200": {
             "description": "The cart.",

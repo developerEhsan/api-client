@@ -157,9 +157,9 @@ describe('remote spec fetch hygiene (C2/F0 security)', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response('nope', { status: 500 }) as Response,
     );
-    await expect(
-      validate('https://user:pw@api.example.com/spec.json?apikey=LEAK'),
-    ).rejects.toThrow(/api\.example\.com\/spec\.json/);
+    await expect(validate('https://user:pw@api.example.com/spec.json?apikey=LEAK')).rejects.toThrow(
+      /api\.example\.com\/spec\.json/,
+    );
     // The thrown message must not carry the query token or userinfo.
     await expect(validate('https://api.example.com/spec.json?apikey=LEAK')).rejects.not.toThrow(
       /LEAK/,

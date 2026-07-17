@@ -14,7 +14,7 @@ import type {
   PerCallConfig,
   ResolvedRequestConfig,
 } from '../types/config.types';
-import { composeHooks, type HookErrorReporter } from './composeHooks';
+import { type HookErrorReporter, composeHooks } from './composeHooks';
 
 /** True for plain object literals (not arrays, null, or class instances). */
 function isPlainObject(value: unknown): value is Record<string, unknown> {

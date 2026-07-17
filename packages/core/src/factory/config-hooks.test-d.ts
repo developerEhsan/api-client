@@ -23,7 +23,9 @@ describe('config & hooks types', () => {
   });
 
   it('accepts hooks at the module and per-call layers', () => {
-    expectTypeOf<ModuleConfig>().toHaveProperty('hooks').toEqualTypeOf<LifecycleHooks | undefined>();
+    expectTypeOf<ModuleConfig>()
+      .toHaveProperty('hooks')
+      .toEqualTypeOf<LifecycleHooks | undefined>();
     expectTypeOf<PerCallConfig>()
       .toHaveProperty('hooks')
       .toEqualTypeOf<LifecycleHooks | undefined>();

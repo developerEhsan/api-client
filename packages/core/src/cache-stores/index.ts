@@ -75,7 +75,8 @@ export function createIndexedDbStore(options: IndexedDbStoreOptions = {}): Persi
       dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
         const req = idb.open(dbName, 1);
         req.onupgradeneeded = () => {
-          if (!req.result.objectStoreNames.contains(storeName)) req.result.createObjectStore(storeName);
+          if (!req.result.objectStoreNames.contains(storeName))
+            req.result.createObjectStore(storeName);
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
@@ -84,7 +85,10 @@ export function createIndexedDbStore(options: IndexedDbStoreOptions = {}): Persi
     return dbPromise;
   };
 
-  const tx = <T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest): Promise<T> =>
+  const tx = <T>(
+    mode: IDBTransactionMode,
+    run: (store: IDBObjectStore) => IDBRequest,
+  ): Promise<T> =>
     openDb().then(
       (db) =>
         new Promise<T>((resolve, reject) => {
@@ -102,9 +106,21 @@ export function createIndexedDbStore(options: IndexedDbStoreOptions = {}): Persi
         tx<unknown>('readonly', (s) => s.get(key)).then((v) => (isCacheEntry(v) ? v : undefined)),
         undefined,
       ),
-    set: (key, entry) => guard(tx<IDBValidKey>('readwrite', (s) => s.put(entry, key)).then(() => {}), undefined),
-    delete: (key) => guard(tx<undefined>('readwrite', (s) => s.delete(key)).then(() => {}), undefined),
-    clear: () => guard(tx<undefined>('readwrite', (s) => s.clear()).then(() => {}), undefined),
+    set: (key, entry) =>
+      guard(
+        tx<IDBValidKey>('readwrite', (s) => s.put(entry, key)).then(() => {}),
+        undefined,
+      ),
+    delete: (key) =>
+      guard(
+        tx<undefined>('readwrite', (s) => s.delete(key)).then(() => {}),
+        undefined,
+      ),
+    clear: () =>
+      guard(
+        tx<undefined>('readwrite', (s) => s.clear()).then(() => {}),
+        undefined,
+      ),
   };
 }
 
@@ -170,4 +186,3 @@ export function createRedisStore(
     },
   };
 }
-

@@ -9,9 +9,9 @@
  * (added/removed/changed) and reports it via `onChange`.
  */
 import { watch as fsWatch } from 'node:fs';
+import type { SchemaDiff } from '../types/openapi.types';
 import type { CodegenConfig } from './config';
 import { diff, generate } from './generate';
-import type { SchemaDiff } from '../types/openapi.types';
 
 /** Handlers for {@link watchAndGenerate}. */
 export interface WatchHandlers {

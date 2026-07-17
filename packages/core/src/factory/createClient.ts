@@ -34,6 +34,7 @@ import type {
 import type { SchemaAST } from '../types/openapi.types';
 
 import { type AuthManager, createAuthManager } from '../auth/authManager';
+import { createLayeredCacheStore } from '../cache-stores/layered';
 import { validateResponseBody } from '../codegen/schemaValidator';
 import { detectEnvironment } from '../environment/detect';
 import { assertFetchAvailable, resolveAdapterName } from '../environment/edgeSafe';
@@ -46,12 +47,11 @@ import { TimeoutError } from '../errors/TimeoutError';
 import { classifyError } from '../errors/errorClassifier';
 import { createAxiosAdapter } from '../http/adapters/axiosAdapter';
 import { createFetchAdapter } from '../http/adapters/fetchAdapter';
-import { createLayeredCacheStore } from '../cache-stores/layered';
-import { iterateBytes, parseNdjson, parseSse } from '../http/streaming';
 import {
   type LoggingHooks,
   createLoggingInterceptor,
 } from '../http/interceptors/logging.interceptor';
+import { iterateBytes, parseNdjson, parseSse } from '../http/streaming';
 import { deriveAutoDescriptors } from '../runtime/deriveDescriptors';
 import { createSchemaCache } from '../runtime/schemaCache';
 import { createSchemaLoader } from '../runtime/schemaLoader';
@@ -117,7 +117,10 @@ export interface ApiClient {
   setEnvironment(name: string): void;
   getSchema(): SchemaAST | undefined;
   /** Subscribe to a built-in lifecycle event (payload typed by {@link ClientEventMap}). */
-  on<K extends keyof ClientEventMap>(event: K, listener: (payload: ClientEventMap[K]) => void): void;
+  on<K extends keyof ClientEventMap>(
+    event: K,
+    listener: (payload: ClientEventMap[K]) => void,
+  ): void;
   /** Subscribe to a custom (e.g. `ctx.emit`) event. */
   on(event: string, listener: ClientEventListener): void;
   off<K extends keyof ClientEventMap>(
@@ -216,7 +219,8 @@ function instantiateAdapter(config: GlobalConfig): HttpAdapter {
     const adapterLike = requested as HttpAdapter;
     const wrapped: HttpAdapter = { send: (request) => adapterLike.send(request) };
     if (typeof adapterLike.stream === 'function') {
-      wrapped.stream = (request) => (adapterLike.stream as NonNullable<HttpAdapter['stream']>)(request);
+      wrapped.stream = (request) =>
+        (adapterLike.stream as NonNullable<HttpAdapter['stream']>)(request);
     }
     return wrapped;
   }
@@ -675,7 +679,9 @@ export function createClient(config: GlobalConfig): ApiClient {
     // global setting applies.
     const queueForThisCall = resolved.queue ?? queueEnabled;
     const withQueue = <R>(work: () => Promise<R>): Promise<R> =>
-      queueForThisCall ? queue.add(work, effectiveSignal ? { signal: effectiveSignal } : {}) : work();
+      queueForThisCall
+        ? queue.add(work, effectiveSignal ? { signal: effectiveSignal } : {})
+        : work();
 
     const method = spec.method.toUpperCase();
     const isGet = method === 'GET';

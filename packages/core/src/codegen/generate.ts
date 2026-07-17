@@ -150,7 +150,12 @@ async function readInput(input: string, options: ReadInputOptions = {}): Promise
       throw new ConfigurationError(`Failed to fetch OpenAPI spec from ${redactUrl(input)}.`, error);
     }
     if (response.status === 304) {
-      return { raw: '', doc: undefined, notModified: true, ...(options.etag ? { etag: options.etag } : {}) };
+      return {
+        raw: '',
+        doc: undefined,
+        notModified: true,
+        ...(options.etag ? { etag: options.etag } : {}),
+      };
     }
     if (!response.ok) {
       throw new ConfigurationError(
@@ -309,10 +314,7 @@ export async function diff(
 export async function generate(options: GenerateOptions): Promise<GenerateResult> {
   const { input, output, generatedAt, check } = options;
 
-  const { raw, doc } = await readInput(
-    input,
-    options.headers ? { headers: options.headers } : {},
-  );
+  const { raw, doc } = await readInput(input, options.headers ? { headers: options.headers } : {});
   const ast = parseOpenApi(doc);
   const sourceHash = fnv1a(raw);
 

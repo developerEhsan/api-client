@@ -13,7 +13,11 @@ const SPEC = {
   info: { title: 'Petstore', version: '1.0.0' },
   paths: {
     '/pet/{petId}': {
-      get: { operationId: 'getPetById', tags: ['pet'], responses: { '200': { description: 'ok' } } },
+      get: {
+        operationId: 'getPetById',
+        tags: ['pet'],
+        responses: { '200': { description: 'ok' } },
+      },
     },
     '/pet': {
       get: { operationId: 'listPets', tags: ['pet'], responses: { '200': { description: 'ok' } } },

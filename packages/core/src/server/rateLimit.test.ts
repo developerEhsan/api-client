@@ -4,11 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createRpcHandler } from './createRpcHandler';
-import {
-  type RpcRequestContext,
-  createMemoryRateLimitStore,
-  createRateLimiter,
-} from './index';
+import { type RpcRequestContext, createMemoryRateLimitStore, createRateLimiter } from './index';
 
 const ctxWith = (xff?: string): RpcRequestContext => ({
   getHeader: (name) => (name === 'x-forwarded-for' ? xff : undefined),

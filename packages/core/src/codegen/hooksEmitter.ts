@@ -82,29 +82,16 @@ export function emitReactQueryHooks(ast: SchemaAST, opts: EmitHooksOptions = {})
 
       if (isGet) {
         hooks.push(
-          `export function use${modPascal}${methodPascal}(\n` +
-            `  params?: Parameters<typeof ${q}.queryOptions.${method}>[0],\n` +
-            `  options?: { enabled?: boolean },\n` +
-            `) {\n` +
-            `  return useQuery({ ...${q}.queryOptions.${method}(params), ...options })\n` +
-            `}`,
+          `export function use${modPascal}${methodPascal}(\n  params?: Parameters<typeof ${q}.queryOptions.${method}>[0],\n  options?: { enabled?: boolean },\n) {\n  return useQuery({ ...${q}.queryOptions.${method}(params), ...options })\n}`,
         );
         if (op.isPaginated) {
           hooks.push(
-            `export function use${modPascal}${methodPascal}Infinite(\n` +
-              `  params?: Parameters<typeof ${q}.infiniteQueryOptions.${method}>[0],\n` +
-              `) {\n` +
-              `  return useInfiniteQuery(${q}.infiniteQueryOptions.${method}(params))\n` +
-              `}`,
+            `export function use${modPascal}${methodPascal}Infinite(\n  params?: Parameters<typeof ${q}.infiniteQueryOptions.${method}>[0],\n) {\n  return useInfiniteQuery(${q}.infiniteQueryOptions.${method}(params))\n}`,
           );
         }
       } else {
         hooks.push(
-          `export function use${modPascal}${methodPascal}(\n` +
-            `  options?: Parameters<typeof ${q}.mutationOptions.${method}>[0],\n` +
-            `) {\n` +
-            `  return useMutation(${q}.mutationOptions.${method}(options))\n` +
-            `}`,
+          `export function use${modPascal}${methodPascal}(\n  options?: Parameters<typeof ${q}.mutationOptions.${method}>[0],\n) {\n  return useMutation(${q}.mutationOptions.${method}(options))\n}`,
         );
       }
     }

@@ -9,11 +9,7 @@ import { createMockAdapter } from '../testing/mockAdapter';
 import type { CacheEntry } from '../types/cache.types';
 import type { ModuleContext } from '../types/module.types';
 import { createCache } from '../utilities/cache';
-import {
-  type RedisLikeClient,
-  createMemoryPersistentStore,
-  createRedisStore,
-} from './index';
+import { type RedisLikeClient, createMemoryPersistentStore, createRedisStore } from './index';
 import { createLayeredCacheStore } from './layered';
 
 const entry = (key: string, ttlMs = 60_000): CacheEntry => ({

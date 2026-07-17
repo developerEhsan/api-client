@@ -11,7 +11,11 @@ const DOC = {
   info: { title: 'Petstore', version: '1.0.0' },
   paths: {
     '/pet/{petId}': {
-      get: { operationId: 'getPetById', tags: ['pet'], responses: { '200': { description: 'ok' } } },
+      get: {
+        operationId: 'getPetById',
+        tags: ['pet'],
+        responses: { '200': { description: 'ok' } },
+      },
     },
     '/pet': {
       get: {
@@ -41,7 +45,9 @@ describe('emitReactQueryHooks', () => {
 
   it('emits a useQuery hook for a GET operation', () => {
     expect(src).toContain('export function usePetGetPetById(');
-    expect(src).toContain('return useQuery({ ...q.pet.queryOptions.getPetById(params), ...options })');
+    expect(src).toContain(
+      'return useQuery({ ...q.pet.queryOptions.getPetById(params), ...options })',
+    );
   });
 
   it('emits a useMutation hook for a non-GET operation', () => {

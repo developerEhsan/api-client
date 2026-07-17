@@ -63,7 +63,7 @@ export function ProductDemo() {
     try {
       const product = await api.products.getProductById(
         { id: productId },
-        { signal: controller.signal }
+        { signal: controller.signal },
       );
       setDirect(JSON.stringify(product, null, 2));
     } catch (error) {
@@ -76,7 +76,11 @@ export function ProductDemo() {
   // 2. Direct write
   async function addDirect() {
     setWriteResult('Adding…');
-    const body: ProductInput = { title: `Widget-${Date.now() % 1000}`, price: 9.99, category: 'demo' };
+    const body: ProductInput = {
+      title: `Widget-${Date.now() % 1000}`,
+      price: 9.99,
+      category: 'demo',
+    };
     try {
       const product = await api.products.addProduct({ body });
       setWriteResult(`Added product #${product.id ?? '?'} (${product.title}).`);
@@ -127,7 +131,11 @@ export function ProductDemo() {
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">SSR RPC Bridge</h1>
         <p className="text-slate-500">
           Client component → Server Action → real API. The backend URL and paths never reach the
-          browser. Watch the Network tab: only <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800">POST /</code>.
+          browser. Watch the Network tab: only{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800">
+            POST /
+          </code>
+          .
         </p>
       </div>
 
@@ -136,7 +144,10 @@ export function ProductDemo() {
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
             <h2 className="font-semibold text-slate-800">
-              1 · Direct read — <code className="text-sm font-normal text-slate-600">api.products.getProductById</code>
+              1 · Direct read —{' '}
+              <code className="text-sm font-normal text-slate-600">
+                api.products.getProductById
+              </code>
             </h2>
           </div>
           <div className="p-6 space-y-4">
@@ -164,7 +175,9 @@ export function ProductDemo() {
               </button>
             </div>
             <p className="text-xs text-slate-500">
-              The returned product has no <code className="rounded bg-slate-100 px-1 py-0.5">images</code> — redacted by <code className="rounded bg-slate-100 px-1 py-0.5">transformResult</code>.
+              The returned product has no{' '}
+              <code className="rounded bg-slate-100 px-1 py-0.5">images</code> — redacted by{' '}
+              <code className="rounded bg-slate-100 px-1 py-0.5">transformResult</code>.
             </p>
             <pre className="max-h-60 overflow-x-auto rounded-lg bg-slate-50 p-4 font-mono text-sm text-slate-800 shadow-inner border border-slate-100">
               {direct}
@@ -175,13 +188,13 @@ export function ProductDemo() {
         {/* Section 2 */}
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-            <h2 className="font-semibold text-slate-800">
-              2 · Direct write + authz
-            </h2>
+            <h2 className="font-semibold text-slate-800">2 · Direct write + authz</h2>
             <div className="flex items-center gap-3 text-sm">
               <span className="flex items-center gap-1.5">
-                Editor session: 
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${isEditor ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                Editor session:
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${isEditor ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}
+                >
                   {isEditor ? 'ON' : 'OFF'}
                 </span>
               </span>
@@ -201,7 +214,9 @@ export function ProductDemo() {
               Add a product
             </button>
             <p className="text-xs text-slate-500">
-              With editor OFF the <code className="rounded bg-slate-100 px-1 py-0.5">authorize</code> hook denies the write. Turn it ON, then add.
+              With editor OFF the{' '}
+              <code className="rounded bg-slate-100 px-1 py-0.5">authorize</code> hook denies the
+              write. Turn it ON, then add.
             </p>
             <pre className="overflow-x-auto rounded-lg bg-slate-50 p-4 font-mono text-sm text-slate-800 shadow-inner border border-slate-100">
               {writeResult || '—'}
@@ -212,7 +227,9 @@ export function ProductDemo() {
         {/* Section 5 */}
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
-            <h2 className="font-semibold text-slate-800">5 · Batching — three reads, one round-trip</h2>
+            <h2 className="font-semibold text-slate-800">
+              5 · Batching — three reads, one round-trip
+            </h2>
           </div>
           <div className="p-6 space-y-4">
             <button
@@ -222,7 +239,8 @@ export function ProductDemo() {
               Fetch #1, #2, #3 together
             </button>
             <p className="text-xs text-slate-500">
-              The browser client coalesces same-tick calls; the server validates each sub-call individually.
+              The browser client coalesces same-tick calls; the server validates each sub-call
+              individually.
             </p>
             <pre className="overflow-x-auto rounded-lg bg-slate-50 p-4 font-mono text-sm text-slate-800 shadow-inner border border-slate-100">
               {batchResult || '—'}
@@ -246,10 +264,13 @@ export function ProductDemo() {
             </label>
             <div className="min-h-[24px] text-sm">
               {search.isPending && <p className="text-slate-500 animate-pulse">Loading matches…</p>}
-              {search.isError && <p className="text-red-600 font-medium">{describeError(search.error)}</p>}
+              {search.isError && (
+                <p className="text-red-600 font-medium">{describeError(search.error)}</p>
+              )}
               {search.data && (
                 <p className="text-slate-700 bg-indigo-50 text-indigo-900 px-3 py-2 rounded-md inline-block">
-                  <span className="font-semibold">{search.data.products.length}</span> products match “{term}”.
+                  <span className="font-semibold">{search.data.products.length}</span> products
+                  match “{term}”.
                 </p>
               )}
             </div>
@@ -286,8 +307,15 @@ export function ProductDemo() {
       </div>
 
       <p className="mt-8 text-center text-sm text-slate-500">
-        See <a href="/http" className="text-indigo-600 hover:underline">/http</a> for the generic <code className="px-1">httpTransport</code> variant and{' '}
-        <a href="/server" className="text-indigo-600 hover:underline">/server</a> for direct server-side usage.
+        See{' '}
+        <a href="/http" className="text-indigo-600 hover:underline">
+          /http
+        </a>{' '}
+        for the generic <code className="px-1">httpTransport</code> variant and{' '}
+        <a href="/server" className="text-indigo-600 hover:underline">
+          /server
+        </a>{' '}
+        for direct server-side usage.
       </p>
     </main>
   );

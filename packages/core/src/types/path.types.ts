@@ -6,8 +6,9 @@
  */
 
 /** Union of placeholder names in a path template, e.g. `/a/{x}/b/{y}` -> `'x' | 'y'`. */
-export type ExtractPathParams<P extends string> =
-  P extends `${string}{${infer Name}}${infer Rest}` ? Name | ExtractPathParams<Rest> : never;
+export type ExtractPathParams<P extends string> = P extends `${string}{${infer Name}}${infer Rest}`
+  ? Name | ExtractPathParams<Rest>
+  : never;
 
 /**
  * The `pathParams` requirement for a path `P`:

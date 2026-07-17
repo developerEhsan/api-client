@@ -52,7 +52,11 @@ export function TanstackDemo() {
       </div>
 
       <div className="toolbar">
-        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="New product title" />
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="New product title"
+        />
         <Button
           disabled={addProduct.isPending}
           onClick={() =>
@@ -66,7 +70,9 @@ export function TanstackDemo() {
       </div>
 
       {addProduct.isError ? (
-        <div className="alert">addProduct failed: {String((addProduct.error as Error).message)}</div>
+        <div className="alert">
+          addProduct failed: {String((addProduct.error as Error).message)}
+        </div>
       ) : null}
       {list.isError ? <div className="alert">{String((list.error as Error).message)}</div> : null}
 
@@ -76,7 +82,9 @@ export function TanstackDemo() {
             <div className="card__title">
               {p.title} <StatusBadge status={p.category} />
             </div>
-            <div className="muted">#{p.id} · ${p.price}</div>
+            <div className="muted">
+              #{p.id} · ${p.price}
+            </div>
           </div>
         ))}
       </div>
