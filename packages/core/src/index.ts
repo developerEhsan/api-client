@@ -142,7 +142,16 @@ export type {
   ModuleRequestSpecFor,
   OperationOptions,
   OperationRunner,
+  StreamOptions,
+  StreamRunner,
 } from './types/module.types';
+export {
+  parseSse,
+  parseNdjson,
+  iterateBytes,
+  iterateLines,
+  type SseEvent,
+} from './http/streaming';
 export type { ExtractPathParams, PathParamsFor } from './types/path.types';
 export type { SchemaAST, SchemaDiff } from './types/openapi.types';
 export type {

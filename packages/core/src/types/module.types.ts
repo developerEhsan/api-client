@@ -59,6 +59,32 @@ export type OperationRunner = <T>(
   opts?: OperationOptions,
 ) => Promise<T>;
 
+/** Options for the streaming primitive {@link ModuleContext.stream}. */
+export interface StreamOptions {
+  /**
+   * How to decode the byte stream:
+   *  - `'ndjson'` (default): newline-delimited JSON, yields each parsed value;
+   *  - `'sse'`: Server-Sent Events, yields `{ event?, data, id? }`;
+   *  - `'raw'`: yields `Uint8Array` chunks.
+   */
+  mode?: 'ndjson' | 'sse' | 'raw';
+  /** Cancel the stream. Aborting rejects the iterator with an `AbortError`. */
+  signal?: AbortSignal;
+  /** Connect timeout (ms) applied until the response headers arrive. */
+  timeout?: number;
+}
+
+/**
+ * Stream a response body as an `AsyncIterable` (roadmap E1). Bypasses cache,
+ * dedup, and response validation (meaningless for a stream) and requires the
+ * fetch adapter. Consume with `for await`. Set the element type `T` to match
+ * `opts.mode` (`SseEvent` for `'sse'`, `Uint8Array` for `'raw'`).
+ */
+export type StreamRunner = <T = unknown, const P extends string = string>(
+  spec: ModuleRequestSpecFor<P>,
+  opts?: StreamOptions,
+) => AsyncIterable<T>;
+
 /**
  * The context handed to every custom module method. Provides the `request`
  * primitive (HTTP), the generic `run` primitive (any async work), access to
@@ -86,6 +112,11 @@ export interface ModuleContext {
    * still benefiting from the client's cross-cutting infrastructure.
    */
   run: OperationRunner;
+  /**
+   * Stream a response body as an `AsyncIterable` (NDJSON / SSE / raw bytes),
+   * bypassing cache/dedup/validation. Fetch-adapter only. See {@link StreamRunner}.
+   */
+  stream: StreamRunner;
   /** Access the whole client for composed cross-module calls. */
   readonly client: unknown;
   /** The resolved name of this module. */

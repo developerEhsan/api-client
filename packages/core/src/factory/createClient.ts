@@ -28,6 +28,8 @@ import type {
   ModuleRequestSpec,
   OperationOptions,
   OperationRunner,
+  StreamOptions,
+  StreamRunner,
 } from '../types/module.types';
 import type { SchemaAST } from '../types/openapi.types';
 
@@ -44,6 +46,7 @@ import { TimeoutError } from '../errors/TimeoutError';
 import { classifyError } from '../errors/errorClassifier';
 import { createAxiosAdapter } from '../http/adapters/axiosAdapter';
 import { createFetchAdapter } from '../http/adapters/fetchAdapter';
+import { iterateBytes, parseNdjson, parseSse } from '../http/streaming';
 import {
   type LoggingHooks,
   createLoggingInterceptor,
@@ -208,7 +211,13 @@ function instantiateAdapter(config: GlobalConfig): HttpAdapter {
   const requested = config.http?.adapter;
   if (isAdapterLike(requested)) {
     // Custom adapter object: HttpAdapterLike is structurally an HttpAdapter.
-    return { send: (request) => requested.send(request) };
+    // Forward the optional streaming capability when the adapter provides it.
+    const adapterLike = requested as HttpAdapter;
+    const wrapped: HttpAdapter = { send: (request) => adapterLike.send(request) };
+    if (typeof adapterLike.stream === 'function') {
+      wrapped.stream = (request) => (adapterLike.stream as NonNullable<HttpAdapter['stream']>)(request);
+    }
+    return wrapped;
   }
 
   const env = detectEnvironment();
@@ -1007,6 +1016,103 @@ export function createClient(config: GlobalConfig): ApiClient {
         : withDedup();
     };
 
+  // --- Streaming primitive (ctx.stream) -----------------------------------
+  // Bypasses cache/dedup/validation (meaningless for a stream) and requires a
+  // stream-capable (fetch) adapter. Resolves auth/tenant/baseURL like a normal
+  // request, then hands the raw body stream to the chosen decoder.
+  const makeStream =
+    (moduleName: string): StreamRunner =>
+    <T = unknown>(
+      spec: {
+        method: ApiRequest['method'];
+        path: string;
+        pathParams?: Record<string, string | number>;
+        query?: Record<string, unknown>;
+        body?: unknown;
+      },
+      opts?: StreamOptions,
+    ): AsyncIterable<T> => {
+      async function* gen(): AsyncGenerator<T> {
+        const resolved = resolveRequestConfig(
+          currentConfig,
+          moduleConfigs[moduleName],
+          opts?.timeout !== undefined ? { timeout: opts.timeout } : undefined,
+        );
+        if (typeof adapter.stream !== 'function') {
+          throw new ConfigurationError(
+            'Streaming requires a stream-capable adapter. Use the fetch adapter (http.adapter: "fetch").',
+          );
+        }
+
+        const baseHeaders: Record<string, string> = { ...resolved.headers };
+        const tenantId = await resolveTenantId(
+          typeof resolved.tenancy.getTenantId === 'function'
+            ? { getTenantId: resolved.tenancy.getTenantId }
+            : {},
+        );
+        if (tenantId) baseHeaders[resolved.tenancy.headerName ?? 'X-Tenant-ID'] = tenantId;
+        const auth = await authManager.resolve(resolved.auth, resolved.skipAuth);
+        const headers = { ...baseHeaders, ...auth.headers };
+        const query = { ...spec.query, ...auth.query };
+
+        const url = buildUrl({
+          baseURL: resolved.baseURL,
+          path: spec.path,
+          pathParams: spec.pathParams,
+          query: serializeQuery(query).length > 0 ? query : undefined,
+        });
+
+        // Connect timeout: aborts if headers don't arrive in time. Caller signal
+        // is linked so an external abort cancels the connection too.
+        const controller = new AbortController();
+        const external = opts?.signal;
+        if (external) {
+          if (external.aborted) controller.abort();
+          else external.addEventListener('abort', () => controller.abort(), { once: true });
+        }
+        const connectMs = opts?.timeout ?? resolved.timeout;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        if (connectMs > 0) timer = setTimeout(() => controller.abort(), connectMs);
+
+        const request: ApiRequest = {
+          url,
+          method: spec.method,
+          headers,
+          timeout: connectMs,
+          moduleName,
+          methodName: 'stream',
+          signal: controller.signal,
+        };
+        if (spec.body !== undefined) request.body = spec.body;
+        if (auth.cookie) request.meta = { cookieAuth: true };
+
+        let res: Awaited<ReturnType<NonNullable<HttpAdapter['stream']>>>;
+        try {
+          res = await adapter.stream(request);
+        } finally {
+          if (timer !== undefined) clearTimeout(timer); // connect done; no per-chunk timeout here
+        }
+        if (res.status >= 400) {
+          throw new ApiError({
+            message: `Streaming request failed with status ${res.status}`,
+            status: res.status,
+            request,
+          });
+        }
+        if (!res.body) return;
+
+        const mode = opts?.mode ?? 'ndjson';
+        if (mode === 'raw') {
+          yield* iterateBytes(res.body, external) as AsyncGenerator<T>;
+        } else if (mode === 'sse') {
+          yield* parseSse(res.body, external) as AsyncGenerator<T>;
+        } else {
+          yield* parseNdjson<T>(res.body, external);
+        }
+      }
+      return gen();
+    };
+
   const makeLogger = (moduleName: string): ModuleLogger => {
     const prefix = `[@developerehsan/api-client:${moduleName}]`;
     const enabled = logging !== undefined;
@@ -1034,6 +1140,7 @@ export function createClient(config: GlobalConfig): ApiClient {
     const context: ModuleContext = {
       request: (spec, perCall) => run(spec, { moduleName: name, methodName: 'request' }, perCall),
       run: makeOperationRun(name),
+      stream: makeStream(name),
       client: undefined,
       moduleName: name,
       emit: (event: string, payload?: unknown) => emit(`module:${name}:${event}`, payload),
