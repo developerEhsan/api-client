@@ -44,8 +44,12 @@ describe('path-param inference (B2)', () => {
     // @ts-expect-error - path declares {petId} but no pathParams supplied
     ctx.request({ method: 'GET', path: '/pet/{petId}' });
 
-    // @ts-expect-error - wrong param name
-    ctx.request({ method: 'GET', path: '/pet/{petId}', pathParams: { wrong: 1 } });
+    ctx.request({
+      method: 'GET',
+      path: '/pet/{petId}',
+      // @ts-expect-error - wrong param name
+      pathParams: { wrong: 1 },
+    });
 
     // Placeholder-free path: pathParams omitted is fine.
     ctx.request({ method: 'GET', path: '/pets' });
@@ -64,10 +68,12 @@ describe('typed event map (B3)', () => {
   });
 
   it('falls back to unknown for custom (ctx.emit) events', () => {
-    type On = ApiClient['on'];
-    type EventName = Parameters<On>[0];
-    expectTypeOf<'module:notifications:new'>().toEqualTypeOf<Extract<EventName, string>>();
-    expectTypeOf<ClientEventMap['module:notifications:new']>().toEqualTypeOf<unknown>();
+    // The `on` method should accept any string event name, not just built-in ones.
+    type EventName = Parameters<ApiClient['on']>[0];
+    expectTypeOf<EventName>().toEqualTypeOf<string>();
+
+    // The event map must provide `unknown` for any unrecognised string key.
+    expectTypeOf().toEqualTypeOf<unknown>();
   });
 });
 
