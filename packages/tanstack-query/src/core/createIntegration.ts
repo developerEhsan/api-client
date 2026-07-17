@@ -154,7 +154,7 @@ export function createQueryIntegration(
       },
       invalidateQueries: (queryClient: QueryClientLike, method?: string) =>
         queryClient.invalidateQueries({
-          queryKey: method ? ['developerEhsan', moduleName, method] : moduleKey(moduleName),
+          queryKey: method ? [moduleName, method] : moduleKey(moduleName),
         }),
     };
   }

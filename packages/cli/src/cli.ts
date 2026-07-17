@@ -73,14 +73,20 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** Merge config-file values with flags (flags win). Requires input + output. */
-async function resolveConfig(args: Args): Promise<CodegenConfig> {
+/**
+ * Merge config-file values with flags (flags win). Always requires `input`;
+ * `output` is required unless `requireOutput` is false (e.g. for `validate`,
+ * which only reads the spec).
+ */
+async function resolveConfig(args: Args, requireOutput = true): Promise<CodegenConfig> {
   const loaded = await loadCodegenConfig(process.cwd(), args.config);
   const fromFile = loaded?.config;
   const input = args.input ?? fromFile?.input;
-  const output = args.output ?? fromFile?.output;
+  const output = args.output ?? fromFile?.output ?? '';
   if (!input) fail('No "input" provided (pass --input or set it in api-client.config).');
-  if (!output) fail('No "output" provided (pass --output or set it in api-client.config).');
+  if (requireOutput && !output) {
+    fail('No "output" provided (pass --output or set it in api-client.config).');
+  }
   const baseURL = args['base-url'] ?? fromFile?.baseURL;
   return {
     input,
@@ -161,7 +167,7 @@ async function main(): Promise<void> {
         break;
       }
       case 'validate': {
-        const config = await resolveConfig(args);
+        const config = await resolveConfig(args, false);
         const ast = await validate(config.input, config.headers ? { headers: config.headers } : {});
         const counts =
           `${Object.keys(ast.operations).length} operations, ` +

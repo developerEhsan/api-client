@@ -5,37 +5,39 @@ import { ApiError } from '@developerehsan/api-client';
  * Call the typed client straight from components. Every method is fully typed
  * from the OpenAPI spec — inputs are checked, results are inferred:
  *
- *   api.pet.findPetsByStatus({ status })   -> Promise<Pet[]>
- *   api.pet.getPetById({ petId })          -> Promise<Pet>
+ *   api.products.searchProducts({ q, limit })  -> Promise<ProductList>
+ *   api.products.getProductById({ id })         -> Promise<Product>
  *
- * This section shows: typed query params, typed path params, loading/error
- * states, and typed error handling (ApiError with a real HTTP status).
+ * Shows: typed query params, typed path params, loading/error states, typed
+ * error handling (ApiError with a real HTTP status), and the debounce-cancel
+ * window (a newer keystroke auto-aborts the previous in-flight search).
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Panel, Spinner, StatusBadge } from '../components/ui';
 import { api } from '../lib/api/api.config';
-import type { Pet } from '../lib/api/types/generated/api.types';
-
-type Status = 'available' | 'pending' | 'sold';
+import type { Product } from '../lib/api/types/generated/api.types';
 
 export function DirectClientDemo() {
-  const [status, setStatus] = useState<Status>('available');
-  const [pets, setPets] = useState<Pet[]>([]);
+  const [term, setTerm] = useState('phone');
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selected, setSelected] = useState<Pet | null>(null);
+  const [selected, setSelected] = useState<Product | null>(null);
   const [elapsed, setElapsed] = useState<number | null>(null);
 
-  const load = useCallback(async (next: Status) => {
+  const load = useCallback(async (q: string) => {
     setLoading(true);
     setError(null);
     const started = performance.now();
     try {
-      // `status` is a typed enum — try changing it to an invalid value and TS errors.
-      const result = await api.pet.findPetsByStatus({ status: next });
-      setPets(result.slice(0, 12));
+      // Typed query params. A newer search within the 300ms `dedupeWindow`
+      // auto-cancels the previous in-flight one (see api.config.ts) — the
+      // AbortError is swallowed here so only the latest result wins.
+      const result = await api.products.searchProducts({ q, limit: 12 });
+      setProducts(result.products);
       setElapsed(Math.round(performance.now() - started));
     } catch (err) {
+      if (err instanceof ApiError && err.name === 'AbortError') return; // superseded
       setError(err instanceof ApiError ? `${err.status ?? ''} ${err.message}` : String(err));
     } finally {
       setLoading(false);
@@ -43,14 +45,14 @@ export function DirectClientDemo() {
   }, []);
 
   useEffect(() => {
-    void load(status);
-  }, [status, load]);
+    void load(term);
+  }, [term, load]);
 
-  const openDetail = useCallback(async (petId: number) => {
+  const openDetail = useCallback(async (id: number) => {
     try {
-      // Path param `{petId}` is typed and required.
-      const pet = await api.pet.getPetById({ petId });
-      setSelected(pet);
+      // Path param `{id}` is typed and required (a wrong key is a TS error).
+      const product = await api.products.getProductById({ id });
+      setSelected(product);
     } catch (err) {
       setError(err instanceof ApiError ? `${err.status ?? ''} ${err.message}` : String(err));
     }
@@ -58,19 +60,15 @@ export function DirectClientDemo() {
 
   return (
     <Panel
-      title="Browse pets (direct typed client)"
-      subtitle="api.pet.findPetsByStatus({ status }) → Pet[]. Second load of the same status is served instantly from the SWR cache."
+      title="Search products (direct typed client)"
+      subtitle="api.products.searchProducts({ q }) → ProductList. Type quickly: earlier in-flight searches auto-cancel (300ms debounce window)."
     >
       <div className="toolbar">
         <label>
-          Status&nbsp;
-          <select value={status} onChange={(e) => setStatus(e.target.value as Status)}>
-            <option value="available">available</option>
-            <option value="pending">pending</option>
-            <option value="sold">sold</option>
-          </select>
+          Search&nbsp;
+          <input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="phone, laptop…" />
         </label>
-        <Button onClick={() => load(status)}>Reload</Button>
+        <Button onClick={() => load(term)}>Reload</Button>
         {loading ? <Spinner /> : null}
         {elapsed !== null ? <span className="muted">loaded in {elapsed} ms</span> : null}
       </div>
@@ -78,27 +76,22 @@ export function DirectClientDemo() {
       {error ? <div className="alert">{error}</div> : null}
 
       <div className="grid">
-        {pets.map((pet) => (
-          <button
-            key={pet.id}
-            type="button"
-            className="card"
-            onClick={() => pet.id != null && openDetail(pet.id)}
-          >
+        {products.map((p) => (
+          <button key={p.id} type="button" className="card" onClick={() => openDetail(p.id)}>
             <div className="card__title">
-              {pet.name} <StatusBadge status={pet.status} />
+              {p.title} <StatusBadge status={p.category} />
             </div>
-            <div className="muted">#{pet.id}</div>
-            {pet.category?.name ? <div className="chip">{pet.category.name}</div> : null}
+            <div className="muted">#{p.id} · ${p.price}</div>
+            {p.brand ? <div className="chip">{p.brand}</div> : null}
           </button>
         ))}
-        {!loading && pets.length === 0 ? <p className="muted">No pets for “{status}”.</p> : null}
+        {!loading && products.length === 0 ? <p className="muted">No products for “{term}”.</p> : null}
       </div>
 
       {selected ? (
         <div className="detail">
           <div className="detail__head">
-            <strong>{selected.name}</strong> <StatusBadge status={selected.status} />
+            <strong>{selected.title}</strong> <StatusBadge status={selected.category} />
             <Button className="btn--ghost" onClick={() => setSelected(null)}>
               close
             </Button>

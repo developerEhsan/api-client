@@ -20,6 +20,7 @@
   "devDependencies": {
     "@babel/core": "^7.29.7",
     "@developerehsan/api-client-cli": "workspace:*",
+    "@developerehsan/api-client-vite": "workspace:*",
     "@rolldown/plugin-babel": "^0.2.3",
     "@types/babel__core": "^7.20.5",
     "@types/node": "^24.13.2",

@@ -2,9 +2,9 @@
  * AUTO-GENERATED — DO NOT EDIT.
  *
  * Regenerate via the @developerehsan/api-client codegen; manual edits are lost.
- * source: Swagger Petstore - OpenAPI 3.0 v1.0.27 (OpenAPI 3.0.4)
- * generatedAt: 2026-07-11T20:15:27.114Z
- * sourceHash: ee0d6198
+ * source: DummyJSON API v1.0.0 (OpenAPI 3.0.3)
+ * generatedAt: 2026-07-17T13:54:06.432Z
+ * sourceHash: 7aefd8ae
  *
  * Emission scheme:
  *  - components -> `export interface`/`export type`
@@ -13,282 +13,302 @@
  *  - `export type ApiPaths` mirrors path -> method -> operationId
  */
 
-export interface ApiResponse {
-  code?: number
-  message?: string
-  type?: string
-}
-
-export interface Category {
-  id?: number
-  name?: string
-}
-
-export interface Order {
-  complete?: boolean
-  id?: number
-  petId?: number
-  quantity?: number
-  shipDate?: string
-  /** Order Status */
-  status?: "placed" | "approved" | "delivered"
-}
-
-export interface Pet {
-  category?: Category
-  id?: number
-  name: string
-  photoUrls: string[]
-  /** pet status in the store */
-  status?: "available" | "pending" | "sold"
-  tags?: Tag[]
-}
-
-export interface Tag {
-  id?: number
-  name?: string
-}
-
-export interface User {
+export interface AuthUser {
+  accessToken?: string
   email?: string
   firstName?: string
+  gender?: string
   id?: number
+  image?: string
   lastName?: string
-  password?: string
-  phone?: string
-  /** User Status */
-  userStatus?: number
+  refreshToken?: string
   username?: string
 }
 
+export interface Cart {
+  discountedTotal?: number
+  id: number
+  products?: {
+    id?: number
+    price?: number
+    quantity?: number
+    title?: string
+    total?: number
+  }[]
+  total?: number
+  totalProducts?: number
+  totalQuantity?: number
+  userId?: number
+}
+
+export interface CartList {
+  carts: Cart[]
+  limit: number
+  skip: number
+  total: number
+}
+
+export interface Category {
+  name?: string
+  slug?: string
+  url?: string
+}
+
+export interface LoginInput {
+  expiresInMins?: number
+  password: string
+  username: string
+}
+
+export interface Post {
+  body?: string
+  id: number
+  reactions?: {
+    dislikes?: number
+    likes?: number
+  }
+  tags?: string[]
+  title: string
+  userId?: number
+  views?: number
+}
+
+export interface PostList {
+  limit: number
+  posts: Post[]
+  skip: number
+  total: number
+}
+
+export interface Product {
+  brand?: string
+  category?: string
+  description?: string
+  discountPercentage?: number
+  id: number
+  images?: string[]
+  price: number
+  rating?: number
+  stock?: number
+  thumbnail?: string
+  title: string
+}
+
+export interface ProductInput {
+  brand?: string
+  category?: string
+  description?: string
+  price?: number
+  stock?: number
+  title: string
+}
+
+export interface ProductList {
+  limit: number
+  products: Product[]
+  skip: number
+  total: number
+}
+
+export interface User {
+  age?: number
+  email?: string
+  firstName?: string
+  gender?: string
+  id: number
+  image?: string
+  lastName?: string
+  phone?: string
+  username?: string
+}
+
+export interface UserList {
+  limit: number
+  skip: number
+  total: number
+  users: User[]
+}
+
 export interface OperationsMap {
-  /** Add a new pet to the store. */
-  addPet: {
+  /** Add a product (simulated). */
+  addProduct: {
     params: {}
     query: {}
-    body: Pet
-    response: Pet
+    body: ProductInput
+    response: Product
   }
-  /** Create user. */
-  createUser: {
+  /** Delete a product (simulated). */
+  deleteProduct: {
+    params: {
+      id: number
+    }
+    query: {}
+    body: never
+    response: Product
+  }
+  /** Fetch one cart by id. */
+  getCartById: {
+    params: {
+      id: number
+    }
+    query: {}
+    body: never
+    response: Cart
+  }
+  /** The current user (requires a bearer token). */
+  getCurrentUser: {
     params: {}
     query: {}
-    body: User
+    body: never
     response: User
   }
-  /** Creates list of users with given input array. */
-  createUsersWithListInput: {
-    params: {}
-    query: {}
-    body: User[]
-    response: User
-  }
-  /** Delete purchase order by identifier. */
-  deleteOrder: {
+  /** Fetch one post by id. */
+  getPostById: {
     params: {
-      /** ID of the order that needs to be deleted */
-      orderId: number
+      id: number
     }
     query: {}
     body: never
-    response: unknown
+    response: Post
   }
-  /** Deletes a pet. */
-  deletePet: {
+  /** Fetch one product by id. */
+  getProductById: {
     params: {
-      /** Pet id to delete */
-      petId: number
+      id: number
     }
     query: {}
     body: never
-    response: unknown
+    response: Product
   }
-  /** Delete user resource. */
-  deleteUser: {
+  /** Fetch one user by id. */
+  getUserById: {
     params: {
-      /** The name that needs to be deleted */
-      username: string
-    }
-    query: {}
-    body: never
-    response: unknown
-  }
-  /** Finds Pets by status. */
-  findPetsByStatus: {
-    params: {}
-    query: {
-      /** Status values that need to be considered for filter */
-      status: "available" | "pending" | "sold"
-    }
-    body: never
-    response: Pet[]
-  }
-  /** Finds Pets by tags. */
-  findPetsByTags: {
-    params: {}
-    query: {
-      /** Tags to filter by */
-      tags: string[]
-    }
-    body: never
-    response: Pet[]
-  }
-  /** Returns pet inventories by status. */
-  getInventory: {
-    params: {}
-    query: {}
-    body: never
-    response: {
-      [key: string]: number
-    }
-  }
-  /** Find purchase order by ID. */
-  getOrderById: {
-    params: {
-      /** ID of order that needs to be fetched */
-      orderId: number
-    }
-    query: {}
-    body: never
-    response: Order
-  }
-  /** Find pet by ID. */
-  getPetById: {
-    params: {
-      /** ID of pet to return */
-      petId: number
-    }
-    query: {}
-    body: never
-    response: Pet
-  }
-  /** Get user by user name. */
-  getUserByName: {
-    params: {
-      /** The name that needs to be fetched. Use user1 for testing */
-      username: string
+      id: number
     }
     query: {}
     body: never
     response: User
   }
-  /** Logs user into the system. */
-  loginUser: {
+  /** List carts (paginated). */
+  listCarts: {
     params: {}
     query: {
-      /** The password for login in clear text */
-      password?: string
-      /** The user name for login */
-      username?: string
+      limit?: number
+      skip?: number
     }
     body: never
-    response: string
+    response: CartList
   }
-  /** Logs out current logged in user session. */
-  logoutUser: {
+  /** List posts (paginated). */
+  listPosts: {
     params: {}
-    query: {}
-    body: never
-    response: unknown
-  }
-  /** Place an order for a pet. */
-  placeOrder: {
-    params: {}
-    query: {}
-    body: Order
-    response: Order
-  }
-  /** Update an existing pet. */
-  updatePet: {
-    params: {}
-    query: {}
-    body: Pet
-    response: Pet
-  }
-  /** Updates a pet in the store with form data. */
-  updatePetWithForm: {
-    params: {
-      /** ID of pet that needs to be updated */
-      petId: number
-    }
     query: {
-      /** Name of pet that needs to be updated */
-      name?: string
-      /** Status of pet that needs to be updated */
-      status?: string
+      limit?: number
+      skip?: number
     }
     body: never
-    response: Pet
+    response: PostList
   }
-  /** Update user resource. */
-  updateUser: {
+  /** All product categories. */
+  listProductCategories: {
+    params: {}
+    query: {}
+    body: never
+    response: Category[]
+  }
+  /** List products (paginated via limit/skip). */
+  listProducts: {
+    params: {}
+    query: {
+      /** Page size. */
+      limit?: number
+      /** Comma-separated fields. */
+      select?: string
+      /** Offset. */
+      skip?: number
+    }
+    body: never
+    response: ProductList
+  }
+  /** List users (paginated). */
+  listUsers: {
+    params: {}
+    query: {
+      limit?: number
+      skip?: number
+    }
+    body: never
+    response: UserList
+  }
+  /** Exchange credentials for an access token. */
+  login: {
+    params: {}
+    query: {}
+    body: LoginInput
+    response: AuthUser
+  }
+  /** Search products (paginated). */
+  searchProducts: {
+    params: {}
+    query: {
+      limit?: number
+      q: string
+      skip?: number
+    }
+    body: never
+    response: ProductList
+  }
+  /** Update a product (simulated). */
+  updateProduct: {
     params: {
-      /** name that need to be deleted */
-      username: string
+      id: number
     }
     query: {}
-    body: User
-    response: unknown
-  }
-  /** Uploads an image. */
-  uploadFile: {
-    params: {
-      /** ID of pet to update */
-      petId: number
-    }
-    query: {
-      /** Additional Metadata */
-      additionalMetadata?: string
-    }
-    body: string
-    response: ApiResponse
+    body: ProductInput
+    response: Product
   }
 }
 
 export type ApiPaths = {
-  "/pet": {
-    POST: "addPet"
-    PUT: "updatePet"
+  "/auth/login": {
+    POST: "login"
   }
-  "/pet/findByStatus": {
-    GET: "findPetsByStatus"
+  "/auth/me": {
+    GET: "getCurrentUser"
   }
-  "/pet/findByTags": {
-    GET: "findPetsByTags"
+  "/carts": {
+    GET: "listCarts"
   }
-  "/pet/{petId}": {
-    DELETE: "deletePet"
-    GET: "getPetById"
-    POST: "updatePetWithForm"
+  "/carts/{id}": {
+    GET: "getCartById"
   }
-  "/pet/{petId}/uploadImage": {
-    POST: "uploadFile"
+  "/posts": {
+    GET: "listPosts"
   }
-  "/store/inventory": {
-    GET: "getInventory"
+  "/posts/{id}": {
+    GET: "getPostById"
   }
-  "/store/order": {
-    POST: "placeOrder"
+  "/products": {
+    GET: "listProducts"
   }
-  "/store/order/{orderId}": {
-    DELETE: "deleteOrder"
-    GET: "getOrderById"
+  "/products/add": {
+    POST: "addProduct"
   }
-  "/user": {
-    POST: "createUser"
+  "/products/categories": {
+    GET: "listProductCategories"
   }
-  "/user/createWithList": {
-    POST: "createUsersWithListInput"
+  "/products/search": {
+    GET: "searchProducts"
   }
-  "/user/login": {
-    GET: "loginUser"
+  "/products/{id}": {
+    DELETE: "deleteProduct"
+    GET: "getProductById"
+    PUT: "updateProduct"
   }
-  "/user/logout": {
-    GET: "logoutUser"
+  "/users": {
+    GET: "listUsers"
   }
-  "/user/{username}": {
-    DELETE: "deleteUser"
-    GET: "getUserByName"
-    PUT: "updateUser"
+  "/users/{id}": {
+    GET: "getUserById"
   }
 }
