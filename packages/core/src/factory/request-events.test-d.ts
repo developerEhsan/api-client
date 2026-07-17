@@ -4,6 +4,7 @@
  */
 import { describe, expectTypeOf, it } from 'vitest';
 import type { ApiClient, ClientEventMap } from './createClient';
+import type { TypedModuleContext } from './createTypedClient';
 import type { ApiError } from '../errors/ApiError';
 import type { ResolvedConfigSnapshot } from '../types/config.types';
 import type { ApiResponse } from '../types/http.types';
@@ -90,5 +91,16 @@ describe('enriched ModuleContext (D1/D2)', () => {
     expectTypeOf(ctx.emit).parameters.toEqualTypeOf<[string, unknown?]>();
     expectTypeOf(ctx.logger.warn).toEqualTypeOf<(...args: unknown[]) => void>();
     expectTypeOf(ctx.config()).toEqualTypeOf<ResolvedConfigSnapshot>();
+  });
+
+  it('the typed-client ctx (TypedModuleContext) also carries run/stream/emit/logger/config', () => {
+    // Regression: the enriched ctx members must exist on the TYPED client too,
+    // so config.modules methods can use ctx.run / ctx.stream / ctx.emit.
+    type Ctx = TypedModuleContext<Record<string, never>, Record<string, never>>;
+    expectTypeOf<Ctx>().toHaveProperty('run');
+    expectTypeOf<Ctx>().toHaveProperty('stream');
+    expectTypeOf<Ctx>().toHaveProperty('emit');
+    expectTypeOf<Ctx>().toHaveProperty('logger');
+    expectTypeOf<Ctx>().toHaveProperty('config');
   });
 });
