@@ -14,4 +14,13 @@ export type {
 export { createNextRpcAction, type NextRpcAction } from './nextAction';
 export { createRpcRouteHandler, type RpcRouteOptions } from './routeHandler';
 export { RpcSecurityError } from './security';
+export {
+  createRateLimiter,
+  createMemoryRateLimitStore,
+  type RateLimiter,
+  type RateLimiterOptions,
+  type RateLimitStore,
+  type RateLimitHit,
+  type RateLimitCall,
+} from './rateLimit';
 export type { RpcCall, RpcResponse, RpcErrorShape } from '../rpc/protocol';
