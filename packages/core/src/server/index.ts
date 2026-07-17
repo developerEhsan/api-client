@@ -13,6 +13,7 @@ export type {
 } from './createRpcHandler';
 export { createNextRpcAction, type NextRpcAction } from './nextAction';
 export { createRpcRouteHandler, type RpcRouteOptions } from './routeHandler';
+export { createStartRpcRoute, createRemixRpcAction } from './frameworks';
 export { RpcSecurityError } from './security';
 export {
   createRateLimiter,

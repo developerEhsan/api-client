@@ -19,3 +19,5 @@ export { emitTypes } from './typeEmitter';
 export type { EmitTypesOptions } from './typeEmitter';
 export { emitModules, emitRpcModules } from './moduleEmitter';
 export type { EmitModulesOptions } from './moduleEmitter';
+export { emitReactQueryHooks } from './hooksEmitter';
+export type { EmitHooksOptions } from './hooksEmitter';
