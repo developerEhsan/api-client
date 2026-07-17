@@ -46,6 +46,7 @@ import { TimeoutError } from '../errors/TimeoutError';
 import { classifyError } from '../errors/errorClassifier';
 import { createAxiosAdapter } from '../http/adapters/axiosAdapter';
 import { createFetchAdapter } from '../http/adapters/fetchAdapter';
+import { createLayeredCacheStore } from '../cache-stores/layered';
 import { iterateBytes, parseNdjson, parseSse } from '../http/streaming';
 import {
   type LoggingHooks,
@@ -322,10 +323,15 @@ export function createClient(config: GlobalConfig): ApiClient {
   // --- Client-level utility singletons -------------------------------------
   // Shared across all requests so dedup/queue/cache coordinate globally.
   const deduplicator = createDeduplicator();
-  const cacheStore = createCache({
+  const l1Cache = createCache({
     maxSize: currentConfig.cache?.maxSize ?? 500,
     ...(currentConfig.cache?.onEvict ? { onEvict: currentConfig.cache.onEvict } : {}),
   });
+  // Optional persistent L2 (E4): layered behind L1 with write-through + async
+  // read-warming, keeping the hot path synchronous.
+  const cacheStore = currentConfig.cache?.persistentStore
+    ? createLayeredCacheStore(l1Cache, currentConfig.cache.persistentStore)
+    : l1Cache;
   const queue = createQueue({
     concurrency: currentConfig.http?.queue?.concurrency ?? 10,
     priority: currentConfig.http?.queue?.priority ?? 'fifo',
