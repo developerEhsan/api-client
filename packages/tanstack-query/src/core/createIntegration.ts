@@ -154,7 +154,9 @@ export function createQueryIntegration(
       },
       invalidateQueries: (queryClient: QueryClientLike, method?: string) =>
         queryClient.invalidateQueries({
-          queryKey: method ? [moduleName, method] : moduleKey(moduleName),
+          // Use the namespaced key so a method-level invalidation actually
+          // matches the queries (which are keyed ['developerEhsan', mod, method, …]).
+          queryKey: method ? methodKey(moduleName, method) : moduleKey(moduleName),
         }),
     };
   }
