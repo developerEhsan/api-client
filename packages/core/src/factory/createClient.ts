@@ -48,6 +48,7 @@ import {
   type LoggingHooks,
   createLoggingInterceptor,
 } from '../http/interceptors/logging.interceptor';
+import { deriveAutoDescriptors } from '../runtime/deriveDescriptors';
 import { createSchemaCache } from '../runtime/schemaCache';
 import { createSchemaLoader } from '../runtime/schemaLoader';
 import { resolveTenantId } from '../tenancy/tenantManager';
@@ -329,12 +330,19 @@ export function createClient(config: GlobalConfig): ApiClient {
   // Loaded in the background from openapi.runtimeURL; powers getSchema() and
   // response validation. Never blocks createClient (which stays synchronous).
   const schemaCache = createSchemaCache();
+  // Resolves when the initial background schema load settles (success OR
+  // failure), so `extends: 'auto'` calls made right after createClient can defer
+  // on it without hanging forever when no runtime schema is configured.
+  let schemaReady: Promise<void> = Promise.resolve();
   {
     const oa = currentConfig.openapi;
     const wantsRuntime = oa.mode !== 'codegen' && typeof oa.runtimeURL === 'string';
     if (wantsRuntime && oa.runtimeURL) {
       const loader = createSchemaLoader({ cache: schemaCache });
-      void loader.load(oa.runtimeURL).catch(() => undefined);
+      schemaReady = loader.load(oa.runtimeURL).then(
+        () => undefined,
+        () => undefined,
+      );
       const interval = currentConfig.dev?.schemaRefreshInterval;
       if (typeof interval === 'number' && interval > 0) {
         const driftPolicy = {
@@ -347,6 +355,12 @@ export function createClient(config: GlobalConfig): ApiClient {
       }
     }
   }
+  const isSchemaReady = (): boolean => schemaCache.get() !== undefined;
+  const whenSchemaReady = (): Promise<void> => schemaReady;
+  const deriveAuto = (moduleName: string): Record<string, AutoMethodDescriptor> | undefined => {
+    const ast = schemaCache.get();
+    return ast ? deriveAutoDescriptors(ast, moduleName) : undefined;
+  };
 
   /** Methods eligible for dedup/cache. GET is always eligible. */
   const dedupeMethods = new Set(
@@ -1027,14 +1041,21 @@ export function createClient(config: GlobalConfig): ApiClient {
       config: () => resolveConfigSnapshot(name),
     };
 
-    // TODO(Phase 6): populate auto descriptors from the loaded schema when
-    // `definition.extends === 'auto'` or `modules.auto === true`.
-    const autoDescriptors: Record<string, AutoMethodDescriptor> = {};
+    // `extends: 'auto'` derives methods from the same-named OpenAPI tag in the
+    // runtime schema. The schema loads in the background, so descriptors are
+    // resolved lazily (dynamic) rather than snapshotted here.
+    const isAuto = definition.extends === 'auto';
 
     client[name] = createModuleProxy(
       {
         moduleName: name,
-        autoDescriptors: definition.extends === 'auto' ? autoDescriptors : undefined,
+        ...(isAuto
+          ? {
+              resolveAutoDescriptors: () => deriveAuto(name),
+              isSchemaReady,
+              whenSchemaReady,
+            }
+          : {}),
         methods: definition.methods,
         context,
         safeMode: currentConfig.safeMode ?? false,
