@@ -13,6 +13,7 @@ export type {
 export { defineCodegenConfig, loadCodegenConfig, loadCodegenConfigFile } from './config';
 export type { CodegenConfig } from './config';
 export { watchAndGenerate } from './watch';
+export { withApiClientCodegen } from './next';
 export type { WatchController, WatchHandlers } from './watch';
 export { parseOpenApi } from './parser';
 export { emitTypes } from './typeEmitter';
