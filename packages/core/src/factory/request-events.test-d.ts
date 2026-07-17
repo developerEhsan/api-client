@@ -81,10 +81,9 @@ describe('enriched ModuleContext (D1/D2)', () => {
     type Run = ModuleContext['run'];
     type Execute = Parameters<Run>[1];
     type Signal = Parameters<Execute>[0];
-    expectTypeOf<Signal>().toEqualTypeOf<AbortSignal | undefined>();
-  });
-
-  it('ctx.emit / ctx.logger / ctx.config are typed', () => {
+    type RunExecute = Parameters<ModuleContext['run']>[1];
+    type RunSignal = Parameters<RunExecute>[0];
+    expectTypeOf<RunSignal>().toEqualTypeOf<AbortSignal | undefined>();
     expectTypeOf<ModuleContext['emit']>().parameters.toEqualTypeOf<[string, unknown?]>();
     expectTypeOf<ModuleContext['logger']['warn']>().toEqualTypeOf<(...args: unknown[]) => void>();
     expectTypeOf<ReturnType<ModuleContext['config']>>().toEqualTypeOf<ResolvedConfigSnapshot>();
