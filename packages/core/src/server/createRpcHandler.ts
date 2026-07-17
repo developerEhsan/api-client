@@ -10,7 +10,7 @@
  * rehydratable errors to the browser.
  */
 
-import type { RpcCall, RpcResponse } from '../rpc/protocol';
+import { type RpcCall, type RpcResponse, isRpcBatchRequest } from '../rpc/protocol';
 import {
   RpcSecurityError,
   assertPrimitivePathParams,
@@ -130,6 +130,12 @@ export interface RpcHandlerOptions<Api> {
    * @default process.env.NODE_ENV !== 'production'
    */
   dev?: boolean;
+  /**
+   * Max sub-calls allowed in one batch (S14 amplification guard). A batch over
+   * this size is rejected WHOLE, before any sub-call is dispatched.
+   * @default 10
+   */
+  maxBatchSize?: number;
 }
 
 /** The dispatcher returned by {@link createRpcHandler}. */
@@ -146,6 +152,16 @@ export interface RpcHandler {
    * if (res.ok) console.log(res.data) // → Pet
    */
   handle(payload: unknown, ctx?: RpcRequestContext): Promise<RpcResponse>;
+  /**
+   * Validate and dispatch a batch envelope (`{ __rpcBatch: RpcCall[] }`). Each
+   * sub-call runs through the SAME per-call trust boundary as {@link handle}
+   * (allowlist → input caps → authorize → onRequest → dispatch → transform),
+   * and one failing sub-call never affects its siblings. Returns responses
+   * positionally. Envelope-level violations (empty, over `maxBatchSize`, or a
+   * nested batch) reject the WHOLE batch as a single-element error array before
+   * any dispatch (S14/S16).
+   */
+  handleBatch(payload: unknown, ctx?: RpcRequestContext): Promise<RpcResponse[]>;
 }
 
 function defaultDev(): boolean {
@@ -206,9 +222,27 @@ export function createRpcHandler<Api extends object>(
   const maxInputDepth = options.maxInputDepth ?? 8;
   const maxInputKeys = options.maxInputKeys ?? 1000;
   const maxTimeout = options.maxTimeout ?? 30_000;
+  const maxBatchSize = options.maxBatchSize ?? 10;
   const dev = options.dev ?? defaultDev();
 
-  const handle = async (payload: unknown, ctx: RpcRequestContext = {}): Promise<RpcResponse> => {
+  /** Sanitize + log one error into a failure envelope (shared by single/batch). */
+  const fail = (error: unknown, call: RpcCall<Api> | null): RpcResponse => {
+    // S8: log the full error server-side; return only the sanitized shape.
+    if (options.onError) {
+      try {
+        options.onError(error, call);
+      } catch {
+        /* never let a logging hook break the response */
+      }
+    }
+    return { ok: false, error: sanitizeError(error, dev) };
+  };
+
+  /**
+   * The single per-call trust boundary. Runs for every call — standalone AND
+   * each batch entry — so a batch can never skip a check (S13/S15).
+   */
+  const dispatchOne = async (payload: unknown, ctx: RpcRequestContext): Promise<RpcResponse> => {
     let call: RpcCall<Api> | null = null;
     try {
       call = parsePayload(payload);
@@ -221,7 +255,8 @@ export function createRpcHandler<Api extends object>(
       assertSafeInput(input, maxInputDepth, maxInputKeys);
       assertPrimitivePathParams(input);
 
-      // S3: authorization (separate from existence).
+      // S3: authorization (separate from existence) — runs PER call, incl. per
+      // batch entry, so an allowed sibling never authorizes a denied one (S15).
       if (options.authorize && !(await options.authorize(ctx, call))) throw notAvailable();
 
       // S11: pre-dispatch middleware (rate-limit / audit) — may throw to reject.
@@ -247,17 +282,33 @@ export function createRpcHandler<Api extends object>(
 
       return { ok: true, data };
     } catch (error) {
-      // S8: log the full error server-side; return only the sanitized shape.
-      if (options.onError) {
-        try {
-          options.onError(error, call);
-        } catch {
-          /* never let a logging hook break the response */
-        }
-      }
-      return { ok: false, error: sanitizeError(error, dev) };
+      return fail(error, call);
     }
   };
 
-  return { handle };
+  const handle = (payload: unknown, ctx: RpcRequestContext = {}): Promise<RpcResponse> =>
+    dispatchOne(payload, ctx);
+
+  const handleBatch = async (
+    payload: unknown,
+    ctx: RpcRequestContext = {},
+  ): Promise<RpcResponse[]> => {
+    if (!isRpcBatchRequest(payload)) {
+      return [fail(new RpcSecurityError('bad_payload', 400), null)];
+    }
+    const calls = payload.__rpcBatch;
+    // S14: reject the WHOLE batch (before any dispatch) when empty or oversized.
+    if (calls.length === 0 || calls.length > maxBatchSize) {
+      return [fail(new RpcSecurityError('batch_too_large', 413), null)];
+    }
+    // S16: a batch may not nest another batch envelope.
+    if (calls.some((c) => isRpcBatchRequest(c))) {
+      return [fail(new RpcSecurityError('bad_payload', 400), null)];
+    }
+    // Each sub-call is fully, independently validated + dispatched; one failure
+    // never affects its siblings (partial success is expected).
+    return Promise.all(calls.map((c) => dispatchOne(c, ctx)));
+  };
+
+  return { handle, handleBatch };
 }

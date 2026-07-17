@@ -11,7 +11,7 @@ export {
   type ServerAction,
   type HttpTransportOptions,
 } from './transports';
-export type { RpcClient, Transport, RpcPerCall } from './types';
+export type { RpcClient, RpcClientOptions, Transport, RpcPerCall } from './types';
 export { ApiError } from '../errors/ApiError';
 export {
   isRpcErrorShape,

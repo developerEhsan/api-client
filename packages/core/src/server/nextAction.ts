@@ -8,11 +8,14 @@
  */
 
 import { readServerCookie, readServerHeader } from '../environment/serverContext';
-import type { RpcResponse } from '../rpc/protocol';
+import { type RpcResponse, isRpcBatchRequest } from '../rpc/protocol';
 import type { RpcHandler, RpcRequestContext } from './createRpcHandler';
 
-/** A bound server action: `(payload) => Promise<RpcResponse>`. */
-export type NextRpcAction = (payload: unknown) => Promise<RpcResponse>;
+/**
+ * A bound server action. Returns a single {@link RpcResponse} for a normal
+ * call, or a positional `RpcResponse[]` when handed a batch envelope.
+ */
+export type NextRpcAction = (payload: unknown) => Promise<RpcResponse | RpcResponse[]>;
 
 /**
  * Wrap a handler as a Next.js Server Action.
@@ -36,12 +39,13 @@ export type NextRpcAction = (payload: unknown) => Promise<RpcResponse>;
  * await api.pet.findPetsByStatus({ status: 'available' }) // browser sends only { module, method, args }
  */
 export function createNextRpcAction(handler: RpcHandler): NextRpcAction {
-  return async function rpcAction(payload: unknown): Promise<RpcResponse> {
+  return async function rpcAction(payload: unknown): Promise<RpcResponse | RpcResponse[]> {
     const ctx: RpcRequestContext = {
       origin: await readServerHeader('origin'),
       getHeader: (name: string) => readServerHeader(name),
       getCookie: (name: string) => readServerCookie(name),
     };
+    if (isRpcBatchRequest(payload)) return handler.handleBatch(payload, ctx);
     return handler.handle(payload, ctx);
   };
 }
