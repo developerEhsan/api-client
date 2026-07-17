@@ -142,6 +142,76 @@ describe('ctx.run — generic operation runner', () => {
   });
 });
 
+describe('ctx.run dedup key isolation (S21 — no cross-tenant/auth sharing)', () => {
+  /** A client whose tenant + token rotate per resolution, to force distinct keys. */
+  function rotatingClient() {
+    const tenants = ['tA', 'tB'];
+    const tokens = ['tokA', 'tokB'];
+    let ti = 0;
+    let ki = 0;
+    const { api } = createMockClient({
+      tenancy: { getTenantId: () => tenants[ti++ % tenants.length] as string },
+      auth: { strategy: 'bearer', getToken: () => tokens[ki++ % tokens.length] as string },
+      modules: {
+        auto: false as const,
+        tasks: {
+          methods: {
+            runOp: async (ctx: ModuleContext, key: string, fn: () => Promise<unknown>) =>
+              ctx.run(key, fn, { dedupe: true }),
+          },
+        },
+      },
+    });
+    return api as unknown as { tasks: { runOp: (key: string, fn: () => Promise<unknown>) => Promise<unknown> } };
+  }
+
+  it('does NOT collapse identical concurrent ops issued under different tenants/auth', async () => {
+    const api = rotatingClient();
+    let calls = 0;
+    const fn = async () => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 20));
+      return calls;
+    };
+    // Same operation key + args, but the tenant/auth scope differs per call, so
+    // the dedup keys must differ and both must execute (no shared result).
+    await Promise.all([api.tasks.runOp('same', fn), api.tasks.runOp('same', fn)]);
+    expect(calls).toBe(2);
+  });
+
+  it('does NOT dedup when the auth fingerprint cannot be resolved (getter throws)', async () => {
+    const built = createMockClient({
+      auth: {
+        strategy: 'bearer',
+        getToken: () => {
+          throw new Error('vault down');
+        },
+      },
+      modules: {
+        auto: false as const,
+        tasks: {
+          methods: {
+            runOp: async (ctx: ModuleContext, key: string, fn: () => Promise<unknown>) =>
+              ctx.run(key, fn, { dedupe: true }),
+          },
+        },
+      },
+    });
+    const api = built.api as unknown as {
+      tasks: { runOp: (k: string, fn: () => Promise<unknown>) => Promise<unknown> };
+    };
+    let calls = 0;
+    const fn = async () => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 20));
+      return calls;
+    };
+    // Unresolvable scope => never coalesce under an ambiguous key.
+    await Promise.all([api.tasks.runOp('op', fn), api.tasks.runOp('op', fn)]);
+    expect(calls).toBe(2);
+  });
+});
+
 describe('ctx.emit / ctx.logger / ctx.config', () => {
   it('ctx.emit routes to a namespaced client event', async () => {
     const { api } = clientWithCtx();

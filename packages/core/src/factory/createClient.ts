@@ -1012,7 +1012,12 @@ export function createClient(config: GlobalConfig): ApiClient {
       const withDedup = async (): Promise<T> => {
         if (opts?.dedupe !== true) return withRetryLoop();
         const scope = await resolveOperationScope(moduleName);
-        const key = `op:${moduleName}:${operationKey}:${scope.tenantId ?? ''}:${scope.fp ?? ''}:${JSON.stringify(opts?.keyParts ?? null)}`;
+        // Mirror the HTTP pipeline: when the auth fingerprint cannot be resolved
+        // (getter threw -> null), scoping is unsafe, so run WITHOUT dedup rather
+        // than coalesce two principals under an ambiguous key (cross-principal
+        // result-sharing). Only dedup when the scope is fully resolved.
+        if (scope.fp === null) return withRetryLoop();
+        const key = `op:${moduleName}:${operationKey}:${scope.tenantId ?? ''}:${scope.fp}:${JSON.stringify(opts?.keyParts ?? null)}`;
         return deduplicator.dedupe(key, withRetryLoop);
       };
 
