@@ -90,7 +90,7 @@ describe('enriched ModuleContext (D1/D2)', () => {
   it('ctx.emit / ctx.logger / ctx.config are typed', () => {
     expectTypeOf(ctx.emit).parameters.toEqualTypeOf<[string, unknown?]>();
     expectTypeOf(ctx.logger.warn).toEqualTypeOf<(...args: unknown[]) => void>();
-    expectTypeOf(ctx.config()).toEqualTypeOf<ResolvedConfigSnapshot>();
+    expectTypeOf<ReturnType<ModuleContext['config']>>().toEqualTypeOf<ResolvedConfigSnapshot>();
   });
 
   it('the typed-client ctx (TypedModuleContext) also carries run/stream/emit/logger/config', () => {
