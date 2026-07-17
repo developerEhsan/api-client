@@ -17,8 +17,8 @@ export function HttpDemo() {
   async function run() {
     setOut('Loading…');
     try {
-      const inventory = await apiHttp.store.getInventory();
-      setOut(JSON.stringify(inventory, null, 2));
+      const list = await apiHttp.products.listProducts({ limit: 5 });
+      setOut(JSON.stringify(list.products.map((p) => p.title), null, 2));
     } catch (error) {
       setOut(
         error instanceof ApiError
@@ -34,10 +34,10 @@ export function HttpDemo() {
     >
       <h1>httpTransport variant</h1>
       <p style={{ color: '#666' }}>
-        <code>apiHttp.store.getInventory()</code> → <code>POST /api/rpc</code>. Same bridge, no
+        <code>apiHttp.products.listProducts()</code> → <code>POST /api/rpc</code>. Same bridge, no
         Server Action.
       </p>
-      <button onClick={run}>Fetch inventory</button>
+      <button onClick={run}>Fetch products</button>
       <pre style={{ background: '#f4f4f4', padding: 12, borderRadius: 6, overflowX: 'auto' }}>
         {out}
       </pre>

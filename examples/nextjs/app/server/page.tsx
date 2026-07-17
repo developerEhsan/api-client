@@ -17,8 +17,8 @@ export const dynamic = 'force-dynamic';
 export default async function ServerPage() {
   let body: string;
   try {
-    const inventory = await api.store.getInventory({}, {});
-    body = JSON.stringify(inventory, null, 2);
+    const list = await api.products.listProducts({ limit: 5 });
+    body = JSON.stringify(list.products.map((p) => p.title), null, 2);
   } catch (error) {
     body =
       error instanceof ApiError
@@ -34,8 +34,8 @@ export default async function ServerPage() {
         Server Component — direct <code>api</code>
       </h1>
       <p style={{ color: '#666' }}>
-        Fetched on the server with <code>await api.store.getInventory()</code>. No bridge, no client
-        JS for this call.
+        Fetched on the server with <code>await api.products.listProducts()</code>. No bridge, no
+        client JS for this call.
       </p>
       <pre style={{ background: '#f4f4f4', padding: 12, borderRadius: 6, overflowX: 'auto' }}>
         {body}
