@@ -1065,7 +1065,7 @@ ergonomics.
 ```text
  Browser (client component)                Server (Node / edge)
  ───────────────────────────               ─────────────────────────────
- api.pet.getPetById({ petId })             createRpcHandler(realApi, { expose })
+ api.products.getProductById({ id })       createRpcHandler(realApi, { expose })
    │  proxy, typed via `typeof serverApi`     │  allowlist → authorize → dispatch
    │  (type-only, erased at build)            ▼  runs the REAL client (holds secrets)
    ▼  POST same-origin { module,method,args }
@@ -1157,7 +1157,7 @@ import { ApiError } from '@developerehsan/api-client/browser'
 
 async function load() {
   try {
-    const pet = await api.pet.getPetById({ petId: 1 }) // → Pet, fully typed
+    const product = await api.products.getProductById({ id: 1 }) // → Product, typed
   } catch (e) {
     if (e instanceof ApiError) console.log(e.status, e.message) // rehydrated!
   }
@@ -1177,7 +1177,7 @@ export const q = createQueryIntegration(api, { modules: rpcModules })
 
 ### Cancellation
 
-Pass an `AbortSignal` as usual — `api.pet.getPetById({ petId }, { signal })`. The
+Pass an `AbortSignal` as usual — `api.products.getProductById({ id }, { signal })`. The
 signal is **not** sent over the wire (it isn't serializable); it's honored
 locally and rejects the promise with an `AbortError` on abort.
 
@@ -1196,7 +1196,7 @@ The handler enforces all of the following before dispatch:
 | Error leakage | Only `{ name, status, code, message }` cross the wire; stacks, request URLs, and headers never do (`details` only when `dev: true`) |
 
 > **Note:** the bridge client *type* mirrors your whole API surface, so
-> `api.pet.deletePet(...)` still type-checks even if it isn't exposed — the
+> `api.products.deleteProduct(...)` still type-checks even if it isn't exposed — the
 > `expose` allowlist is the runtime gate, and an un-exposed call is denied.
 
 A complete, runnable example lives in [`examples/nextjs`](./examples/nextjs).
