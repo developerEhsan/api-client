@@ -4,7 +4,7 @@
  */
 
 import type { AdapterResponse, ApiRequest, ResponseType } from '../../types/http.types';
-import type { HttpAdapter } from './adapterInterface';
+import type { AdapterStreamResponse, HttpAdapter } from './adapterInterface';
 
 /** Flatten a {@link Headers} instance into a plain record. */
 function flattenHeaders(headers: Headers): Record<string, string> {
@@ -60,35 +60,36 @@ async function parseBody(response: Response, responseType: ResponseType): Promis
  * Does not throw on non-2xx responses — those resolve as an
  * {@link AdapterResponse}. Genuine network failures reject (fetch rejects).
  */
+/** Build the fetch `RequestInit` (shared by send + stream). */
+function buildInit(request: ApiRequest): RequestInit {
+  const headers: Record<string, string> = { ...request.headers };
+
+  let body: BodyInit | undefined;
+  if (request.body !== undefined && request.body !== null) {
+    if (typeof request.body === 'string') {
+      body = request.body;
+    } else if (isPlainBody(request.body)) {
+      body = JSON.stringify(request.body);
+      if (!hasHeader(headers, 'content-type')) {
+        headers['Content-Type'] = 'application/json';
+      }
+    } else {
+      body = request.body as BodyInit;
+    }
+  }
+
+  const init: RequestInit = { method: request.method, headers };
+  if (body !== undefined) init.body = body;
+  if (request.signal) init.signal = request.signal;
+  if (request.meta?.['cookieAuth'] === true) init.credentials = 'include';
+  return init;
+}
+
 export function createFetchAdapter(): HttpAdapter {
   return {
     async send(request: ApiRequest): Promise<AdapterResponse> {
       const responseType: ResponseType = request.responseType ?? 'json';
-      const headers: Record<string, string> = { ...request.headers };
-
-      let body: BodyInit | undefined;
-      if (request.body !== undefined && request.body !== null) {
-        if (typeof request.body === 'string') {
-          body = request.body;
-        } else if (isPlainBody(request.body)) {
-          body = JSON.stringify(request.body);
-          if (!hasHeader(headers, 'content-type')) {
-            headers['Content-Type'] = 'application/json';
-          }
-        } else {
-          body = request.body as BodyInit;
-        }
-      }
-
-      const init: RequestInit = {
-        method: request.method,
-        headers,
-      };
-      if (body !== undefined) init.body = body;
-      if (request.signal) init.signal = request.signal;
-      if (request.meta?.['cookieAuth'] === true) init.credentials = 'include';
-
-      const response = await fetch(request.url, init);
+      const response = await fetch(request.url, buildInit(request));
       const data = await parseBody(response, responseType);
 
       return {
@@ -96,6 +97,15 @@ export function createFetchAdapter(): HttpAdapter {
         statusText: response.statusText,
         headers: flattenHeaders(response.headers),
         data,
+      };
+    },
+    async stream(request: ApiRequest): Promise<AdapterStreamResponse> {
+      const response = await fetch(request.url, buildInit(request));
+      return {
+        status: response.status,
+        statusText: response.statusText,
+        headers: flattenHeaders(response.headers),
+        body: response.body,
       };
     },
   };

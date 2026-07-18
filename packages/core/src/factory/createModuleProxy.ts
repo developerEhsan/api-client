@@ -47,6 +47,17 @@ export interface ModuleProxyInput {
   moduleName: string;
   /** Auto-derived methods (may be empty until a schema is loaded). */
   autoDescriptors?: Record<string, AutoMethodDescriptor>;
+  /**
+   * Dynamic auto-descriptor source for `extends: 'auto'` against a runtime
+   * schema that loads in the background. When present, auto methods resolve
+   * lazily at access/call time from this function instead of the static
+   * {@link ModuleProxyInput.autoDescriptors} map.
+   */
+  resolveAutoDescriptors?: () => Record<string, AutoMethodDescriptor> | undefined;
+  /** True once the runtime schema has loaded (auto methods are then final). */
+  isSchemaReady?: () => boolean;
+  /** Resolves when the runtime schema has loaded (used to defer an early call). */
+  whenSchemaReady?: () => Promise<void>;
   /** Custom methods; require {@link ModuleProxyInput.context}. */
   methods?: ModuleMethods;
   context?: ModuleContext;
@@ -100,11 +111,46 @@ export function createModuleProxy(
   input: ModuleProxyInput,
   run: RequestRunner,
 ): Record<string, unknown> {
-  const { moduleName, autoDescriptors, methods, context, safeMode } = input;
+  const {
+    moduleName,
+    autoDescriptors,
+    resolveAutoDescriptors,
+    isSchemaReady,
+    whenSchemaReady,
+    methods,
+    context,
+    safeMode,
+  } = input;
   const target: Record<string, unknown> = {};
 
   const finalize = <T>(promise: Promise<T>): Promise<T> | Promise<SafeResult<T>> =>
     safeMode ? wrapSafe(promise) : promise;
+
+  /** Build a callable for an auto method sourced from the runtime schema. */
+  const makeDynamicAuto = (methodName: string) => {
+    return (input_?: AutoCallInput, perCall?: PerCallConfig) =>
+      finalize(
+        (async () => {
+          // Defer until the background schema load settles, so a call made
+          // right after createClient still resolves the descriptor.
+          if (whenSchemaReady) await whenSchemaReady();
+          const descriptor = resolveAutoDescriptors?.()?.[methodName];
+          if (!descriptor) {
+            throw new ConfigurationError(
+              `Module "${moduleName}" has no auto method "${methodName}" in the loaded schema.`,
+            );
+          }
+          const spec: ModuleRequestSpec = {
+            method: descriptor.method,
+            path: descriptor.path,
+            pathParams: input_?.pathParams,
+            query: input_?.query,
+            body: input_?.body,
+          };
+          return (await run(spec, { moduleName, methodName }, perCall)).data;
+        })(),
+      );
+  };
 
   if (autoDescriptors) {
     for (const [methodName, descriptor] of Object.entries(autoDescriptors)) {
@@ -156,6 +202,16 @@ export function createModuleProxy(
       if (typeof prop === 'symbol') return Reflect.get(obj, prop, receiver);
       // Never masquerade as a thenable, even if awaited by mistake.
       if (prop === 'then') return undefined;
+      // Custom + static-auto methods (own props) always win.
+      if (Object.hasOwn(obj, prop)) return Reflect.get(obj, prop, receiver);
+      // Dynamic auto methods from the runtime schema: expose a callable when the
+      // descriptor already exists, or when the schema hasn't loaded yet (the
+      // callable then awaits readiness and errors clearly if still absent).
+      if (resolveAutoDescriptors && !isReservedMethodName(prop)) {
+        const ready = isSchemaReady?.() ?? true;
+        const hasDescriptor = resolveAutoDescriptors()?.[prop] !== undefined;
+        if (hasDescriptor || !ready) return makeDynamicAuto(prop);
+      }
       return Reflect.get(obj, prop, receiver);
     },
     set(): boolean {
