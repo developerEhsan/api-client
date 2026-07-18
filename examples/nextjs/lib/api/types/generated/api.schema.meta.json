@@ -1,0 +1,20 @@
+{
+  "hash": "7aefd8ae",
+  "operations": {
+    "listProducts": "b4020e01",
+    "searchProducts": "9f9e411e",
+    "listProductCategories": "fc239452",
+    "getProductById": "8a939ea9",
+    "updateProduct": "5dd5b73d",
+    "deleteProduct": "e2cb33fa",
+    "addProduct": "ec0bd2ee",
+    "login": "2cde38f8",
+    "getCurrentUser": "e6435b9f",
+    "listUsers": "657fb65d",
+    "getUserById": "47372b95",
+    "listPosts": "40e56e3a",
+    "getPostById": "6f60b836",
+    "listCarts": "0b213252",
+    "getCartById": "b792e652"
+  }
+}

@@ -9,6 +9,7 @@ export default defineConfig({
     testing: 'src/testing/index.ts',
     server: 'src/server/index.ts',
     browser: 'src/browser/index.ts',
+    'cache-stores': 'src/cache-stores/index.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,

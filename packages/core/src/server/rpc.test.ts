@@ -141,6 +141,59 @@ describe('createRpcHandler', () => {
     expect(res.ok).toBe(false);
   });
 
+  it('S6: rejects input exceeding the breadth cap (object keys)', async () => {
+    const { api, calls } = makeApi();
+    const h = createRpcHandler(api, { expose: { pet: ['getPetById'] }, maxInputKeys: 3 });
+    const wide: Record<string, number> = {};
+    for (let i = 0; i < 10; i++) wide[`k${i}`] = i;
+    const res = await h.handle({ module: 'pet', method: 'getPetById', args: [wide] });
+    expect(res.ok).toBe(false);
+    expect(calls).toHaveLength(0); // rejected before dispatch
+  });
+
+  it('S6: rejects input exceeding the breadth cap (array length)', async () => {
+    const { api, calls } = makeApi();
+    const h = createRpcHandler(api, { expose: { pet: ['getPetById'] }, maxInputKeys: 3 });
+    const res = await h.handle({
+      module: 'pet',
+      method: 'getPetById',
+      args: [{ items: [1, 2, 3, 4, 5] }],
+    });
+    expect(res.ok).toBe(false);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('S4: perCall sanitization is a closed set — only `timeout` can survive', async () => {
+    const { api, calls } = makeApi();
+    const h = createRpcHandler(api, { expose: { pet: ['getPetById'] }, maxTimeout: 5000 });
+    // A maximal hostile perCall: every override a client might attempt, plus a
+    // hook (hooks land on PerCallConfig in a later phase and MUST stay stripped).
+    await h.handle({
+      module: 'pet',
+      method: 'getPetById',
+      args: [
+        { pathParams: { petId: 1 } },
+        {
+          timeout: 1000,
+          baseURL: 'http://evil.internal',
+          adapter: {},
+          headers: { authorization: 'x' },
+          auth: { strategy: 'bearer', getToken: () => 'stolen' },
+          signal: new AbortController().signal,
+          skipAuth: true,
+          tenantId: 'other-tenant',
+          cache: { bust: true },
+          retry: { attempts: 99 },
+          onRequest: () => ({}),
+          onError: () => {},
+          onSuccess: () => {},
+        },
+      ],
+    });
+    // The dispatched perCall must contain ONLY `timeout`; nothing else crosses.
+    expect(Object.keys(calls[0]!.perCall as object)).toEqual(['timeout']);
+  });
+
   it('S8: sanitizes errors — no stack/backend detail; onError sees the full error', async () => {
     const { api } = makeApi();
     const seen: unknown[] = [];
