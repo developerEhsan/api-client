@@ -1,5 +1,12 @@
 # @developerehsan/api-client-query
 
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [[`49ae954`](https://github.com/developerEhsan/api-client/commit/49ae9545c3e3bcc20b47425461507b86c47cfbae)]:
+  - @developerehsan/api-client@1.0.0
+
 ## 0.2.1
 
 ### Patch Changes
