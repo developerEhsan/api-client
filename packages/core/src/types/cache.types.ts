@@ -89,4 +89,11 @@ export interface CacheConfig {
    * @default optional, unset means no eviction callback
    */
   onEvict?: (key: CacheKey, entry: CacheEntry) => void;
+  /**
+   * Optional persistent L2 store (IndexedDB, Redis, …) layered behind the
+   * in-memory L1 via write-through + background read-warming. Global-level only;
+   * see `@developerehsan/api-client/cache-stores`.
+   * @default optional, unset means memory-only caching
+   */
+  persistentStore?: import('../cache-stores/store.types').PersistentCacheStore;
 }

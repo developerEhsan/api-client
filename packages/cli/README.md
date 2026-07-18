@@ -17,21 +17,45 @@ exposed as the `developerEhsan-api-client` command.
 No install needed — run it with `npx`:
 
 ```bash
-# Generate TypeScript types + module descriptors
+# Generate TypeScript types + module descriptors (local file OR https URL)
 npx @developerehsan/api-client-cli generate \
   --input ./openapi.json \
   --output ./src/generated \
   --base-url https://api.example.com
 
-# Re-generate on change
+# Re-generate on change (local watch, or ETag/hash-aware polling for a URL)
 npx @developerehsan/api-client-cli generate --watch
+
+# CI: fail (non-zero exit) if the generated output is stale vs the spec
+npx @developerehsan/api-client-cli generate --check
 
 # Validate a spec (CI-friendly; no file writes)
 npx @developerehsan/api-client-cli validate --input ./openapi.json
 
-# Show what changed since the last generation
+# Show a per-operation diff since the last generation (+added / -removed / ~changed)
 npx @developerehsan/api-client-cli diff --input ./openapi.json --output ./src/generated
 ```
+
+### Zero-config via `api-client.config.*`
+
+Declare `input`/`output`/`baseURL` once and drop the flags. The CLI resolves the
+nearest `api-client.config.{ts,mts,mjs,js,json}` (or `--config <path>`); explicit
+flags override it.
+
+```ts
+// api-client.config.ts
+import { defineCodegenConfig } from '@developerehsan/api-client/codegen'
+export default defineCodegenConfig({ input: './openapi.json', output: './src/generated' })
+```
+
+```bash
+npx @developerehsan/api-client-cli generate          # reads the config
+npx @developerehsan/api-client-cli generate --check  # CI staleness gate
+```
+
+> Prefer auto-generation as part of your build? Use the
+> [`@developerehsan/api-client-vite`](https://www.npmjs.com/package/@developerehsan/api-client-vite)
+> plugin, or `withApiClientCodegen()` from `@developerehsan/api-client/codegen` for Next.js.
 
 Or install it as a dev dependency:
 

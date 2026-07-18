@@ -1,6 +1,6 @@
 {
   "name": "@developerehsan/api-client",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Typed, modular, universal TypeScript API client factory with caching, deduplication, retries, auth, OpenAPI codegen, response validation, SSR RPC bridge, and TanStack Query support.",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
@@ -83,6 +83,11 @@
       "edge-light": "./dist/browser.js",
       "import": "./dist/browser.js",
       "require": "./dist/browser.cjs"
+    },
+    "./cache-stores": {
+      "types": "./dist/cache-stores.d.ts",
+      "import": "./dist/cache-stores.js",
+      "require": "./dist/cache-stores.cjs"
     },
     "./package.json": "./package.json"
   },

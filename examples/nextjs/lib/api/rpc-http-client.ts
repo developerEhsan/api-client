@@ -1,14 +1,15 @@
 /**
  * SSR RPC bridge — browser side, GENERIC HTTP transport variant.
  *
- * Identical surface to `./rpc-client` (`apiHttp.pet.getPetById(...)`), but each
- * call is a `POST /api/rpc` instead of a Server Action. This is the
+ * Identical surface to `./rpc-client` (`apiHttp.products.getProductById(...)`),
+ * but each call is a `POST /api/rpc` instead of a Server Action. This is the
  * framework-agnostic path — the same client works in TanStack Start, Remix, or
  * any server that mounts `createRpcRouteHandler`. Use it when you are not on
- * Next.js, or when you want plain fetch semantics (streaming, custom headers).
+ * Next.js, or when you want plain fetch semantics.
  *
  * As with the Server Action client, `Api` is a type-only import (erased), so no
- * backend URL/paths/openapi ship to the browser.
+ * backend URL/paths/openapi ship to the browser. Batching is enabled here too —
+ * a batch is a single `POST /api/rpc` carrying `{ __rpcBatch: [...] }`.
  */
 import { createRpcClient, httpTransport } from '@developerehsan/api-client/browser';
 import type { Api } from './api.config';
@@ -19,4 +20,5 @@ export const apiHttp = createRpcClient<Api>(
     // and the route's same-origin CSRF check passes.
     endpoint: '/api/rpc',
   }),
+  { batch: true },
 );

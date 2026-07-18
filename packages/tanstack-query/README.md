@@ -74,6 +74,34 @@ Keys are stable and hierarchical: `['developerEhsan', module, method, params]`.
 Passing `null` / `undefined` params to a query that needs them sets
 `enabled: false` automatically (dependent queries).
 
+### Infinite queries & pagination
+
+Any GET the codegen marks paginated (a `page` / `limit` / `offset` / `cursor`
+query param) gets an `infiniteQueryOptions.<method>` factory. Configure how pages
+advance with `pageParamName` + `getNextPageParam` — e.g. for an offset/`skip`
+API like DummyJSON:
+
+```ts
+export const q = createQueryIntegration(api, {
+  modules: generatedModules,
+  pageParamName: 'skip',
+  getNextPageParam: (last: { skip: number; limit: number; total: number }) => {
+    const next = last.skip + last.limit
+    return next < last.total ? next : undefined
+  },
+})
+
+// then:
+const list = useInfiniteQuery(q.products.infiniteQueryOptions.listProducts({ limit: 10 }))
+list.fetchNextPage()
+```
+
+### Over the SSR RPC bridge
+
+Point the integration at the **browser** RPC client plus the paths-stripped
+`rpcModules` descriptor (`api.rpc.ts`) to get the same hooks client-side without
+leaking backend paths — see the `examples/nextjs` app.
+
 ## Documentation
 
 📖 Full React / Vue / Solid guides, SSR prefetch + hydration, and the runtime
