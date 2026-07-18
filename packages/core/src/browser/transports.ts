@@ -8,15 +8,23 @@
  *   `createRpcRouteHandler` on the server). Framework-agnostic.
  */
 
-import { type RpcCall, type RpcResponse, isRpcResponse } from '../rpc/protocol';
+import {
+  type RpcBatchRequest,
+  type RpcCall,
+  type RpcResponse,
+  isRpcResponse,
+} from '../rpc/protocol';
 import type { Transport } from './types';
 
 /** The server-action function shape produced by `createNextRpcAction`. */
-export type ServerAction = (call: RpcCall) => Promise<RpcResponse>;
+export type ServerAction = (
+  payload: RpcCall | RpcBatchRequest,
+) => Promise<RpcResponse | RpcResponse[]>;
 
 /**
  * Wrap a bound server action as a transport. The action already returns the
- * uniform envelope, so this is a thin, named seam.
+ * uniform envelope, so this is a thin, named seam. Also supports batching: a
+ * `{ __rpcBatch }` payload yields a positional `RpcResponse[]`.
  *
  * @example
  * import { createRpcClient, serverActionTransport } from '@developerehsan/api-client/browser'
@@ -27,7 +35,11 @@ export type ServerAction = (call: RpcCall) => Promise<RpcResponse>;
  * await api.pet.findPetsByStatus({ status: 'available' })
  */
 export function serverActionTransport(action: ServerAction): Transport {
-  return (call: RpcCall): Promise<RpcResponse> => action(call);
+  const transport: Transport = (call: RpcCall): Promise<RpcResponse> =>
+    action(call) as Promise<RpcResponse>;
+  transport.batch = (calls: RpcCall[]): Promise<RpcResponse[]> =>
+    action({ __rpcBatch: calls }) as Promise<RpcResponse[]>;
+  return transport;
 }
 
 /** Options for {@link httpTransport}. */
@@ -72,37 +84,50 @@ export function httpTransport(options: HttpTransportOptions): Transport {
   const { endpoint, headers } = options;
   const doFetch = options.fetch ?? globalThis.fetch;
 
-  return async (call: RpcCall): Promise<RpcResponse> => {
+  const transportError = (status: number): RpcResponse => ({
+    ok: false,
+    error: {
+      __rpcError: true,
+      name: 'ApiError',
+      status,
+      code: 'rpc_transport_error',
+      message: 'The request could not be completed.',
+    },
+  });
+
+  const post = async (payload: unknown): Promise<{ status: number; body: unknown }> => {
     if (typeof doFetch !== 'function') {
       throw new Error('httpTransport: no fetch implementation available.');
     }
     const res = await doFetch(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...headers },
-      body: JSON.stringify(call),
+      body: JSON.stringify(payload),
       credentials: 'same-origin',
     });
-
-    let body: unknown = undefined;
+    let body: unknown;
     try {
       body = await res.json();
     } catch {
       body = undefined;
     }
+    return { status: res.status, body };
+  };
 
-    if (isRpcResponse(body)) return body;
-
+  const transport: Transport = async (call: RpcCall): Promise<RpcResponse> => {
+    const { status, body } = await post(call);
     // Transport-level failure (CSRF reject, 4xx/5xx without an envelope): surface
     // a generic error envelope rather than leaking the raw response.
-    return {
-      ok: false,
-      error: {
-        __rpcError: true,
-        name: 'ApiError',
-        status: res.status,
-        code: 'rpc_transport_error',
-        message: 'The request could not be completed.',
-      },
-    };
+    return isRpcResponse(body) ? body : transportError(status);
   };
+
+  transport.batch = async (calls: RpcCall[]): Promise<RpcResponse[]> => {
+    const { status, body } = await post({ __rpcBatch: calls });
+    if (Array.isArray(body)) return body as RpcResponse[];
+    // A single-envelope reply to a batch = whole-batch failure; propagate to all.
+    const err = isRpcResponse(body) ? body : transportError(status);
+    return calls.map(() => err);
+  };
+
+  return transport;
 }

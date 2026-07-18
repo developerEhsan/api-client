@@ -1,12 +1,13 @@
 /**
- * @developerehsan/api-client — live demo (Swagger Petstore).
+ * @developerehsan/api-client — live demo (DummyJSON).
  *
  * Three sections:
  *   1. Direct typed client  — call `api.*` straight from components.
- *   2. TanStack Query       — the same client via useQuery/useMutation.
- *   3. Feature lab          — interactive cache/dedup/timeout/cancel/error/safeMode demos.
+ *   2. TanStack Query       — the same client via useQuery/useInfiniteQuery/useMutation.
+ *   3. Feature lab          — interactive cache/dedup/timeout/cancel/error/safeMode/ctx.run demos.
  *
- * The client is configured once in src/lib/api/api.config.ts.
+ * The client is configured once in src/lib/api/api.config.ts against the free,
+ * CORS-enabled https://dummyjson.com API.
  */
 import { useState } from 'react';
 import './App.css';
@@ -30,9 +31,9 @@ function App() {
       <header className="app__header">
         <h1>@developerehsan/api-client</h1>
         <p>
-          A typed, modular API client — live against the{' '}
-          <a href="https://petstore3.swagger.io" target="_blank" rel="noreferrer">
-            Swagger Petstore
+          A typed, modular API client — live against{' '}
+          <a href="https://dummyjson.com" target="_blank" rel="noreferrer">
+            DummyJSON
           </a>
           . Open the console to watch the request pipeline (dev logging is on).
         </p>

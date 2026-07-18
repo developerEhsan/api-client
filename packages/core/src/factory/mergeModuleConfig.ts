@@ -14,6 +14,7 @@ import type {
   PerCallConfig,
   ResolvedRequestConfig,
 } from '../types/config.types';
+import { type HookErrorReporter, composeHooks } from './composeHooks';
 
 /** True for plain object literals (not arrays, null, or class instances). */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -108,6 +109,7 @@ export function resolveRequestConfig(
   global: GlobalConfig,
   moduleCfg: ModuleConfig | undefined,
   perCall: PerCallConfig | undefined,
+  onHookError?: HookErrorReporter,
 ): ResolvedRequestConfig {
   const baseURL = resolveBaseURL(global, moduleCfg?.baseURL);
 
@@ -150,6 +152,11 @@ export function resolveRequestConfig(
 
   const validation = deepMerge(global.openapi?.validation ?? {}, moduleCfg?.validation ?? {});
 
+  // Hooks are COMPOSED, not deep-merged: every layer fires (global -> module ->
+  // per-call) and transforming hooks chain. deepMerge would clobber a function
+  // rather than run all of them, so hooks bypass it entirely.
+  const hooks = composeHooks([global.hooks, moduleCfg?.hooks, perCall?.hooks], onHookError);
+
   const resolved: ResolvedRequestConfig = {
     baseURL,
     timeout,
@@ -159,6 +166,7 @@ export function resolveRequestConfig(
     retry,
     tenancy,
     validation,
+    hooks,
     skipAuth: perCall?.skipAuth ?? false,
     skipDedup: perCall?.skipDedup ?? false,
     responseType: perCall?.responseType ?? 'json',
@@ -167,6 +175,7 @@ export function resolveRequestConfig(
 
   if (perCall?.signal !== undefined) resolved.signal = perCall.signal;
   if (perCall?.tenantId !== undefined) resolved.tenantId = perCall.tenantId;
+  if (perCall?.queue !== undefined) resolved.queue = perCall.queue;
 
   return resolved;
 }

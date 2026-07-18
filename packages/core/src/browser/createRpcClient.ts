@@ -13,7 +13,7 @@
 
 import { ApiError } from '../errors/ApiError';
 import { type RpcCall, type RpcErrorShape, isRpcErrorShape } from '../rpc/protocol';
-import type { RpcClient, Transport } from './types';
+import type { RpcClient, RpcClientOptions, Transport } from './types';
 
 /** Rebuild a real `ApiError` from the sanitized wire shape so `instanceof` holds. */
 function rehydrateError(shape: RpcErrorShape): ApiError {
@@ -72,12 +72,78 @@ function makeAbortError(): Error {
  * // full types, yet the browser sends only { module, method, args }:
  * await api.pet.getPetById({ petId: 1 }) // → Pet, no backend URL in the network tab
  */
-export function createRpcClient<Api>(transport: Transport): RpcClient<Api> {
-  const invoke = async (call: RpcCall): Promise<unknown> => {
+export function createRpcClient<Api>(
+  transport: Transport,
+  options: RpcClientOptions = {},
+): RpcClient<Api> {
+  const batchFn = typeof transport.batch === 'function' ? transport.batch : undefined;
+  const batchEnabled = options.batch === true && batchFn !== undefined;
+  const maxBatchSize = options.maxBatchSize ?? 10;
+
+  // Microtask coalescing queue (only used when batching is enabled).
+  type Pending = { call: RpcCall; resolve: (v: unknown) => void; reject: (e: unknown) => void };
+  let queue: Pending[] = [];
+  let scheduled = false;
+
+  const flush = (): void => {
+    const batch = queue;
+    queue = [];
+    scheduled = false;
+    // A lone call skips the envelope entirely (wire-compat + avoids the
+    // 1-element "whole-batch failure" ambiguity).
+    if (batch.length === 1) {
+      const only = batch[0] as Pending;
+      transport(only.call).then(
+        (r) => (r.ok ? only.resolve(r.data) : only.reject(rehydrateError(r.error))),
+        only.reject,
+      );
+      return;
+    }
+    if (!batchFn) return; // unreachable when batching is enabled; satisfies the type
+    for (let i = 0; i < batch.length; i += maxBatchSize) {
+      const chunk = batch.slice(i, i + maxBatchSize);
+      batchFn(chunk.map((p) => p.call))
+        .then((responses) => {
+          for (let j = 0; j < chunk.length; j++) {
+            const pending = chunk[j] as Pending;
+            const r = responses[j];
+            // A length mismatch means the whole batch failed server-side; fail
+            // this entry rather than resolving it with an unrelated result.
+            if (r === undefined) {
+              pending.reject(
+                rehydrateError({
+                  __rpcError: true,
+                  name: 'ApiError',
+                  code: 'rpc_batch_error',
+                  message: 'The request could not be completed.',
+                }),
+              );
+            } else if (r.ok) pending.resolve(r.data);
+            else pending.reject(rehydrateError(r.error));
+          }
+        })
+        .catch((error: unknown) => {
+          for (const pending of chunk) pending.reject(error);
+        });
+    }
+  };
+
+  const enqueue = (call: RpcCall): Promise<unknown> =>
+    new Promise<unknown>((resolve, reject) => {
+      queue.push({ call, resolve, reject });
+      if (!scheduled) {
+        scheduled = true;
+        queueMicrotask(flush);
+      }
+    });
+
+  const invokeSingle = async (call: RpcCall): Promise<unknown> => {
     const response = await transport(call);
     if (response.ok) return response.data;
     throw rehydrateError(response.error);
   };
+  const invoke = (call: RpcCall): Promise<unknown> =>
+    batchEnabled ? enqueue(call) : invokeSingle(call);
 
   /**
    * Invoke a method. A per-call `AbortSignal` (args[1].signal) is NOT sent over
@@ -105,10 +171,12 @@ export function createRpcClient<Api>(transport: Transport): RpcClient<Api> {
 
     if (!signal) return invoke(call);
     if (signal.aborted) return Promise.reject(makeAbortError());
+    // A signalled call is always sent individually (never coalesced) so local
+    // cancellation stays precise.
     return new Promise<unknown>((resolve, reject) => {
       const onAbort = (): void => reject(makeAbortError());
       signal.addEventListener('abort', onAbort, { once: true });
-      invoke(call)
+      invokeSingle(call)
         .then(resolve, reject)
         .finally(() => signal.removeEventListener('abort', onAbort));
     });

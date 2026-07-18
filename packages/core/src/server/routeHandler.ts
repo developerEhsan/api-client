@@ -6,7 +6,7 @@
  * plus an Origin / Sec-Fetch-Site check. It also caps body size (S6).
  */
 
-import type { RpcResponse } from '../rpc/protocol';
+import { type RpcResponse, isRpcBatchRequest } from '../rpc/protocol';
 import type { RpcHandler, RpcRequestContext } from './createRpcHandler';
 
 /** Options for {@link createRpcRouteHandler}. */
@@ -36,7 +36,7 @@ function parseCookie(header: string | null, name: string): string | undefined {
   return undefined;
 }
 
-function jsonResponse(body: RpcResponse, status: number): Response {
+function jsonResponse(body: RpcResponse | RpcResponse[], status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -140,7 +140,11 @@ export function createRpcRouteHandler(
       getHeader: (name: string) => req.headers.get(name) ?? undefined,
       getCookie: (name: string) => parseCookie(req.headers.get('cookie'), name),
     };
-    const response = await handler.handle(payload, ctx);
-    return jsonResponse(response, 200);
+    // A batch envelope returns a positional RpcResponse[]; a single call returns
+    // one RpcResponse. The whole-body size cap above still bounds either shape.
+    if (isRpcBatchRequest(payload)) {
+      return jsonResponse(await handler.handleBatch(payload, ctx), 200);
+    }
+    return jsonResponse(await handler.handle(payload, ctx), 200);
   };
 }

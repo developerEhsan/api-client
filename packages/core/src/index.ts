@@ -10,6 +10,7 @@ export type {
   ClientCache,
   ClientConfigApi,
   ClientEventListener,
+  ClientEventMap,
 } from './factory/createClient';
 export { defineModule } from './factory/createModule';
 export {
@@ -34,6 +35,7 @@ export type {
 // --- Errors (typed, throwable) ---
 export { ApiError } from './errors/ApiError';
 export { NetworkError } from './errors/NetworkError';
+export { OperationError } from './errors/OperationError';
 export { TimeoutError } from './errors/TimeoutError';
 export { AuthError } from './errors/AuthError';
 export { SchemaError, SchemaParseError } from './errors/SchemaError';
@@ -135,7 +137,22 @@ export type {
   ModuleDefinition,
   ModuleContext,
   ModuleMethods,
+  ModuleLogger,
+  ModuleRequestSpec,
+  ModuleRequestSpecFor,
+  OperationOptions,
+  OperationRunner,
+  StreamOptions,
+  StreamRunner,
 } from './types/module.types';
+export {
+  parseSse,
+  parseNdjson,
+  iterateBytes,
+  iterateLines,
+  type SseEvent,
+} from './http/streaming';
+export type { ExtractPathParams, PathParamsFor } from './types/path.types';
 export type { SchemaAST, SchemaDiff } from './types/openapi.types';
 export type {
   Environment,
