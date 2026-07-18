@@ -1,6 +1,6 @@
 {
   "name": "@developerehsan/api-client-vite",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Vite plugin that auto-generates @developerehsan/api-client types on dev-server start and build (also covers TanStack Start).",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
@@ -31,7 +31,9 @@
     "access": "public",
     "provenance": true
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

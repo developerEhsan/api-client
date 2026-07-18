@@ -1,6 +1,6 @@
 {
   "name": "@developerehsan/api-client",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Typed, modular, universal TypeScript API client factory with caching, deduplication, retries, auth, OpenAPI codegen, response validation, SSR RPC bridge, and TanStack Query support.",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
@@ -50,7 +50,9 @@
     "access": "public",
     "provenance": true
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
