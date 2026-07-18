@@ -36,8 +36,27 @@ export interface RpcPerCall {
  * must resolve (never reject) for application-level errors — those travel
  * inside the `{ ok: false, error }` envelope so the client can rehydrate a real
  * `ApiError`. It may reject only for genuine transport failures.
+ *
+ * An optional `batch` sends several calls in one round-trip and returns their
+ * responses positionally. When absent, `createRpcClient({ batch: true })`
+ * transparently falls back to individual calls.
  */
-export type Transport = (call: RpcCall) => Promise<RpcResponse>;
+export type Transport = ((call: RpcCall) => Promise<RpcResponse>) & {
+  batch?: (calls: RpcCall[]) => Promise<RpcResponse[]>;
+};
+
+/** Options for {@link createRpcClient}. */
+export interface RpcClientOptions {
+  /**
+   * Coalesce calls made in the same microtask into one batched round-trip (when
+   * the transport supports `batch`). Calls with an `AbortSignal` are always sent
+   * individually to preserve local cancellation.
+   * @default false
+   */
+  batch?: boolean;
+  /** Max calls per batched round-trip. @default 10 */
+  maxBatchSize?: number;
+}
 
 /** Keys on the real client that are not callable RPC modules. */
 type ReservedClientKey = 'cache' | 'config' | 'setEnvironment' | 'getSchema' | 'on' | 'off';

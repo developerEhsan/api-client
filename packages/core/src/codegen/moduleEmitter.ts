@@ -24,7 +24,7 @@ export interface EmitModulesOptions {
 }
 
 /** A single emitted module: its property name plus any warning to annotate. */
-interface EmittedModule {
+export interface EmittedModule {
   /** Original tag name. */
   tag: string;
   /** Property name used in the descriptor (may be renamed for reserved tags). */
@@ -150,7 +150,7 @@ function emitDescriptor(op: OperationNode): string {
 }
 
 /** Resolve a tag to a safe module name, renaming reserved collisions. */
-function resolveModuleName(tag: string): EmittedModule {
+export function resolveModuleName(tag: string): EmittedModule {
   const camel = toCamelCase(tag);
   if (RESERVED_MEMBERS.has(camel)) {
     const name = `${camel}Module`;
@@ -167,7 +167,7 @@ function resolveModuleName(tag: string): EmittedModule {
  * Derive a method name from an operationId, stripping a redundant leading tag
  * prefix (e.g. tag `invoices` + `invoicesList` -> `list`).
  */
-function deriveMethodName(operationId: string, tag: string): string {
+export function deriveMethodName(operationId: string, tag: string): string {
   const camelId = toCamelCase(operationId);
   const camelTag = toCamelCase(tag);
   if (camelTag.length > 0) {

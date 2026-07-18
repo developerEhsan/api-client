@@ -14,20 +14,34 @@ import type { CacheEntry } from '../types/cache.types';
 import type {
   GlobalConfig,
   HttpAdapterLike,
+  LifecycleHooks,
   ModuleConfig,
   ModulesConfig,
   PerCallConfig,
+  ResolvedConfigSnapshot,
 } from '../types/config.types';
 import type { ApiRequest, ApiResponse } from '../types/http.types';
-import type { ModuleContext, ModuleDefinition, ModuleRequestSpec } from '../types/module.types';
+import type {
+  ModuleContext,
+  ModuleDefinition,
+  ModuleLogger,
+  ModuleRequestSpec,
+  OperationOptions,
+  OperationRunner,
+  StreamOptions,
+  StreamRunner,
+} from '../types/module.types';
 import type { SchemaAST } from '../types/openapi.types';
 
 import { type AuthManager, createAuthManager } from '../auth/authManager';
+import { createLayeredCacheStore } from '../cache-stores/layered';
 import { validateResponseBody } from '../codegen/schemaValidator';
 import { detectEnvironment } from '../environment/detect';
 import { assertFetchAvailable, resolveAdapterName } from '../environment/edgeSafe';
 import { ApiError } from '../errors/ApiError';
 import { ConfigurationError } from '../errors/ConfigurationError';
+import { NetworkError } from '../errors/NetworkError';
+import { OperationError } from '../errors/OperationError';
 import { SchemaError } from '../errors/SchemaError';
 import { TimeoutError } from '../errors/TimeoutError';
 import { classifyError } from '../errors/errorClassifier';
@@ -37,6 +51,8 @@ import {
   type LoggingHooks,
   createLoggingInterceptor,
 } from '../http/interceptors/logging.interceptor';
+import { iterateBytes, parseNdjson, parseSse } from '../http/streaming';
+import { deriveAutoDescriptors } from '../runtime/deriveDescriptors';
 import { createSchemaCache } from '../runtime/schemaCache';
 import { createSchemaLoader } from '../runtime/schemaLoader';
 import { resolveTenantId } from '../tenancy/tenantManager';
@@ -44,7 +60,7 @@ import { computeCacheKey, createCache, isFresh } from '../utilities/cache';
 import { createCancellationManager, isAbortError } from '../utilities/cancellation';
 import { computeDedupeKey, createDeduplicator } from '../utilities/deduplicator';
 import { createQueue } from '../utilities/queue';
-import { type ResolvedRetryOptions, withRetry } from '../utilities/retry';
+import { type ResolvedRetryOptions, computeBackoff, withRetry } from '../utilities/retry';
 import { buildUrl, serializeQuery } from '../utilities/urlBuilder';
 import { isModuleDefinition } from './createModule';
 import {
@@ -66,9 +82,30 @@ export interface ClientCache {
 export interface ClientConfigApi {
   get(): Readonly<GlobalConfig>;
   update(patch: Partial<GlobalConfig>): void;
+  /**
+   * Introspect the effective, fully-merged config a call would run with, given
+   * an optional module name and per-call overrides. Returns a JSON-safe,
+   * secret-redacted snapshot (see {@link ResolvedConfigSnapshot}). Useful for
+   * debugging which layer won.
+   */
+  resolve(moduleName?: string, perCall?: PerCallConfig): ResolvedConfigSnapshot;
 }
 
 export type ClientEventListener = (payload: unknown) => void;
+
+/**
+ * Typed payloads for the built-in lifecycle events. Custom events emitted via
+ * `ctx.emit` are namespaced strings and fall through the string overload.
+ */
+export interface ClientEventMap {
+  request: ApiRequest;
+  response: ApiResponse<unknown>;
+  error: ApiError;
+  cacheHit: { key: string; entry: CacheEntry };
+  cacheMiss: { key: string };
+  success: ApiResponse<unknown>;
+  settled: { response: ApiResponse<unknown> | undefined; error: ApiError | undefined };
+}
 
 /**
  * The client surface. Modules are dynamically added string keys; the reserved
@@ -79,7 +116,17 @@ export interface ApiClient {
   readonly config: ClientConfigApi;
   setEnvironment(name: string): void;
   getSchema(): SchemaAST | undefined;
+  /** Subscribe to a built-in lifecycle event (payload typed by {@link ClientEventMap}). */
+  on<K extends keyof ClientEventMap>(
+    event: K,
+    listener: (payload: ClientEventMap[K]) => void,
+  ): void;
+  /** Subscribe to a custom (e.g. `ctx.emit`) event. */
   on(event: string, listener: ClientEventListener): void;
+  off<K extends keyof ClientEventMap>(
+    event: K,
+    listener: (payload: ClientEventMap[K]) => void,
+  ): void;
   off(event: string, listener: ClientEventListener): void;
   [module: string]: unknown;
 }
@@ -130,6 +177,37 @@ function validateConfig(config: GlobalConfig): void {
       );
     }
   }
+
+  // Fail-fast on nonsensical numeric/strategy combinations so misconfigurations
+  // surface at createClient time rather than as confusing runtime behavior.
+  const nonNegative = (value: number | undefined, label: string): void => {
+    if (typeof value === 'number' && (!Number.isFinite(value) || value < 0)) {
+      throw new ConfigurationError(`"${label}" must be a finite number >= 0 (got ${value}).`);
+    }
+  };
+  nonNegative(config.http?.timeout, 'http.timeout');
+  nonNegative(config.cache?.ttl, 'cache.ttl');
+  nonNegative(config.cache?.maxSize, 'cache.maxSize');
+  nonNegative(config.http?.retry?.attempts, 'http.retry.attempts');
+  nonNegative(config.http?.retry?.baseDelay, 'http.retry.baseDelay');
+  nonNegative(config.http?.retry?.maxDelay, 'http.retry.maxDelay');
+
+  const concurrency = config.http?.queue?.concurrency;
+  if (typeof concurrency === 'number' && (!Number.isFinite(concurrency) || concurrency < 1)) {
+    throw new ConfigurationError(
+      `"http.queue.concurrency" must be a finite number >= 1 (got ${concurrency}).`,
+    );
+  }
+
+  if (config.cache?.strategy === 'stale-while-revalidate' && config.cache?.enabled === false) {
+    throw new ConfigurationError(
+      'cache.strategy "stale-while-revalidate" requires cache.enabled to not be false.',
+    );
+  }
+
+  if (config.auth?.strategy === 'oauth2' && !config.auth.refreshEndpoint) {
+    throw new ConfigurationError('auth strategy "oauth2" requires a "refreshEndpoint".');
+  }
 }
 
 /** Instantiate the HTTP adapter appropriate for the runtime (R1). */
@@ -137,7 +215,14 @@ function instantiateAdapter(config: GlobalConfig): HttpAdapter {
   const requested = config.http?.adapter;
   if (isAdapterLike(requested)) {
     // Custom adapter object: HttpAdapterLike is structurally an HttpAdapter.
-    return { send: (request) => requested.send(request) };
+    // Forward the optional streaming capability when the adapter provides it.
+    const adapterLike = requested as HttpAdapter;
+    const wrapped: HttpAdapter = { send: (request) => adapterLike.send(request) };
+    if (typeof adapterLike.stream === 'function') {
+      wrapped.stream = (request) =>
+        (adapterLike.stream as NonNullable<HttpAdapter['stream']>)(request);
+    }
+    return wrapped;
   }
 
   const env = detectEnvironment();
@@ -242,10 +327,15 @@ export function createClient(config: GlobalConfig): ApiClient {
   // --- Client-level utility singletons -------------------------------------
   // Shared across all requests so dedup/queue/cache coordinate globally.
   const deduplicator = createDeduplicator();
-  const cacheStore = createCache({
+  const l1Cache = createCache({
     maxSize: currentConfig.cache?.maxSize ?? 500,
     ...(currentConfig.cache?.onEvict ? { onEvict: currentConfig.cache.onEvict } : {}),
   });
+  // Optional persistent L2 (E4): layered behind L1 with write-through + async
+  // read-warming, keeping the hot path synchronous.
+  const cacheStore = currentConfig.cache?.persistentStore
+    ? createLayeredCacheStore(l1Cache, currentConfig.cache.persistentStore)
+    : l1Cache;
   const queue = createQueue({
     concurrency: currentConfig.http?.queue?.concurrency ?? 10,
     priority: currentConfig.http?.queue?.priority ?? 'fifo',
@@ -259,12 +349,19 @@ export function createClient(config: GlobalConfig): ApiClient {
   // Loaded in the background from openapi.runtimeURL; powers getSchema() and
   // response validation. Never blocks createClient (which stays synchronous).
   const schemaCache = createSchemaCache();
+  // Resolves when the initial background schema load settles (success OR
+  // failure), so `extends: 'auto'` calls made right after createClient can defer
+  // on it without hanging forever when no runtime schema is configured.
+  let schemaReady: Promise<void> = Promise.resolve();
   {
     const oa = currentConfig.openapi;
     const wantsRuntime = oa.mode !== 'codegen' && typeof oa.runtimeURL === 'string';
     if (wantsRuntime && oa.runtimeURL) {
       const loader = createSchemaLoader({ cache: schemaCache });
-      void loader.load(oa.runtimeURL).catch(() => undefined);
+      schemaReady = loader.load(oa.runtimeURL).then(
+        () => undefined,
+        () => undefined,
+      );
       const interval = currentConfig.dev?.schemaRefreshInterval;
       if (typeof interval === 'number' && interval > 0) {
         const driftPolicy = {
@@ -277,6 +374,12 @@ export function createClient(config: GlobalConfig): ApiClient {
       }
     }
   }
+  const isSchemaReady = (): boolean => schemaCache.get() !== undefined;
+  const whenSchemaReady = (): Promise<void> => schemaReady;
+  const deriveAuto = (moduleName: string): Record<string, AutoMethodDescriptor> | undefined => {
+    const ast = schemaCache.get();
+    return ast ? deriveAutoDescriptors(ast, moduleName) : undefined;
+  };
 
   /** Methods eligible for dedup/cache. GET is always eligible. */
   const dedupeMethods = new Set(
@@ -316,7 +419,21 @@ export function createClient(config: GlobalConfig): ApiClient {
     origin: { moduleName: string; methodName: string },
     perCall?: PerCallConfig,
   ): Promise<ApiResponse<T>> => {
-    const resolved = resolveRequestConfig(currentConfig, moduleConfigs[origin.moduleName], perCall);
+    const resolved = resolveRequestConfig(
+      currentConfig,
+      moduleConfigs[origin.moduleName],
+      perCall,
+      (hook, hookError) => {
+        // A hook that throws must never break the request; surface it for
+        // diagnostics only.
+        if (logging) logging.onError(toApiError(hookError));
+        else
+          console.warn(
+            `[@developerehsan/api-client] lifecycle hook "${hook}" threw and was ignored:`,
+            hookError,
+          );
+      },
+    );
 
     // Auth-independent request pieces, computed once and reused across a
     // post-refresh retry.
@@ -397,9 +514,7 @@ export function createClient(config: GlobalConfig): ApiClient {
 
       let outgoing = request;
       if (logging) outgoing = logging.onRequest(outgoing);
-      if (typeof currentConfig.hooks?.onRequest === 'function') {
-        outgoing = await currentConfig.hooks.onRequest(outgoing);
-      }
+      outgoing = await resolved.hooks.onRequest(outgoing);
       emit('request', outgoing);
 
       // Timeout enforcement (spec N1). Adapters (esp. fetch) do not all honor
@@ -453,7 +568,7 @@ export function createClient(config: GlobalConfig): ApiClient {
     const reportError = async (error: ApiError): Promise<never> => {
       if (logging) logging.onError(error);
       emit('error', error);
-      await currentConfig.hooks?.onError?.(error);
+      await resolved.hooks.onError(error);
       throw error;
     };
 
@@ -466,6 +581,7 @@ export function createClient(config: GlobalConfig): ApiClient {
           });
 
     // Retry options resolved for this request (defaults applied upstream).
+    const retryConfigOnRetry = resolved.retry.onRetry;
     const retryOpts: ResolvedRetryOptions = {
       attempts: resolved.retry.attempts,
       backoff: resolved.retry.backoff,
@@ -473,7 +589,12 @@ export function createClient(config: GlobalConfig): ApiClient {
       maxDelay: resolved.retry.maxDelay,
       jitter: resolved.retry.jitter,
       ...(resolved.retry.retryOn ? { retryOn: resolved.retry.retryOn } : {}),
-      ...(resolved.retry.onRetry ? { onRetry: resolved.retry.onRetry } : {}),
+      // Fire the RetryConfig.onRetry (if any) AND the composed lifecycle
+      // onRetry hooks (global/module/per-call) on every retry attempt.
+      onRetry: (attempt: number, error: ApiError) => {
+        retryConfigOnRetry?.(attempt, error);
+        resolved.hooks.onRetry(attempt, error);
+      },
     };
 
     // Retry loop around attempt(): retryable statuses (5xx/429) are thrown so
@@ -548,16 +669,19 @@ export function createClient(config: GlobalConfig): ApiClient {
         fromCache: false,
       };
       if (logging) response = logging.onResponse(response);
-      if (typeof currentConfig.hooks?.onResponse === 'function') {
-        response = (await currentConfig.hooks.onResponse(response)) as ApiResponse<T>;
-      }
+      response = await resolved.hooks.onResponse(response);
       emit('response', response);
       return response;
     };
 
-    // Concurrency queue (step 5) and dedup (step 6) wrappers.
+    // Concurrency queue (step 5) and dedup (step 6) wrappers. A per-call
+    // `queue: false` bypasses the queue for this request only; otherwise the
+    // global setting applies.
+    const queueForThisCall = resolved.queue ?? queueEnabled;
     const withQueue = <R>(work: () => Promise<R>): Promise<R> =>
-      queueEnabled ? queue.add(work, effectiveSignal ? { signal: effectiveSignal } : {}) : work();
+      queueForThisCall
+        ? queue.add(work, effectiveSignal ? { signal: effectiveSignal } : {})
+        : work();
 
     const method = spec.method.toUpperCase();
     const isGet = method === 'GET';
@@ -590,11 +714,11 @@ export function createClient(config: GlobalConfig): ApiClient {
     const cacheBust = resolved.cache.bust === true;
 
     const emitCacheHit = (key: string, entry: CacheEntry): void => {
-      currentConfig.hooks?.onCacheHit?.(key, entry);
+      resolved.hooks.onCacheHit(key, entry);
       emit('cacheHit', { key, entry });
     };
     const emitCacheMiss = (key: string): void => {
-      currentConfig.hooks?.onCacheMiss?.(key);
+      resolved.hooks.onCacheMiss(key);
       emit('cacheMiss', { key });
     };
     const toCacheResponse = (entry: CacheEntry): ApiResponse<T> => ({
@@ -636,7 +760,10 @@ export function createClient(config: GlobalConfig): ApiClient {
         }),
       );
 
-    try {
+    // Produce the response from cache or network. Extracted so the outer
+    // wrapper can fire onSuccess/onSettled exactly once, regardless of which of
+    // the several return paths (cache-hit, SWR stale, network) produced it.
+    const produce = async (): Promise<ApiResponse<T>> => {
       if (cacheKey && !cacheBust) {
         const entry = cacheStore.get(cacheKey);
 
@@ -674,14 +801,349 @@ export function createClient(config: GlobalConfig): ApiClient {
       }
 
       return await fetchThrough();
+    };
+
+    let settledResponse: ApiResponse<T> | undefined;
+    let settledError: ApiError | undefined;
+    try {
+      const response = await produce();
+      settledResponse = response;
+      await resolved.hooks.onSuccess(response);
+      emit('success', response);
+      return response;
     } catch (caught) {
       // Aborts surface as-is (X4: swallow is the caller's concern); everything
       // else is normalized and reported through hooks/events.
       if (isAbortError(caught)) throw caught;
-      return reportError(toApiError(caught));
+      settledError = toApiError(caught);
+      return reportError(settledError);
     } finally {
       settleCancel();
+      // Fires exactly once per request (success, failure, or abort). Awaited so
+      // async settled-hooks complete before the request promise resolves.
+      await resolved.hooks.onSettled(settledResponse, settledError);
+      emit('settled', { response: settledResponse, error: settledError });
     }
+  };
+
+  // --- Module proxies ------------------------------------------------------
+  // --- Resolved-config snapshot (shared by client.config.resolve + ctx.config)
+  const HOOK_NAMES: (keyof LifecycleHooks)[] = [
+    'onRequest',
+    'onResponse',
+    'onError',
+    'onRetry',
+    'onCacheHit',
+    'onCacheMiss',
+    'onSuccess',
+    'onSettled',
+  ];
+  const resolveConfigSnapshot = (
+    moduleName?: string,
+    perCall?: PerCallConfig,
+  ): ResolvedConfigSnapshot => {
+    const moduleCfg = moduleName ? moduleConfigs[moduleName] : undefined;
+    const r = resolveRequestConfig(currentConfig, moduleCfg, perCall);
+    const hookLayers = [currentConfig.hooks, moduleCfg?.hooks, perCall?.hooks];
+    const hooks = Object.fromEntries(
+      HOOK_NAMES.map((n) => [n, hookLayers.some((l) => typeof l?.[n] === 'function')]),
+    ) as Record<keyof LifecycleHooks, boolean>;
+    // Redacted, JSON-safe: no token getters, resolvers, predicates, or hook fns.
+    return Object.freeze({
+      baseURL: r.baseURL,
+      timeout: r.timeout,
+      headers: { ...r.headers },
+      auth: { strategy: r.auth.strategy },
+      cache: {
+        enabled: r.cache.enabled,
+        ttl: r.cache.ttl,
+        strategy: r.cache.strategy,
+        maxSize: r.cache.maxSize,
+        ...(r.cache.bust !== undefined ? { bust: r.cache.bust } : {}),
+      },
+      retry: {
+        attempts: r.retry.attempts,
+        backoff: r.retry.backoff,
+        baseDelay: r.retry.baseDelay,
+        maxDelay: r.retry.maxDelay,
+        jitter: r.retry.jitter,
+      },
+      tenancy: { headerName: r.tenancy.headerName },
+      validation: { ...r.validation },
+      skipAuth: r.skipAuth,
+      skipDedup: r.skipDedup,
+      responseType: r.responseType,
+      safeMode: r.safeMode,
+      ...(r.queue !== undefined ? { queue: r.queue } : {}),
+      hooks,
+    });
+  };
+
+  // --- Generic operation runner (ctx.run) ---------------------------------
+  // Shares the client's queue + deduplicator so non-HTTP module work
+  // coordinates with HTTP requests. Safe-by-default: no dedup/retry unless
+  // asked; the queue follows the client setting.
+  const defaultOperationRetryable = (error: unknown): boolean =>
+    error instanceof NetworkError || error instanceof TimeoutError;
+
+  /** Abort-interruptible delay used between operation retries. */
+  const abortableDelay = (ms: number, signal?: AbortSignal): Promise<void> =>
+    new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+        return;
+      }
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
+      const onAbort = (): void => {
+        clearTimeout(timer);
+        reject(signal?.reason ?? new DOMException('Aborted', 'AbortError'));
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+    });
+
+  /** Resolve the tenant + auth fingerprint used to scope operation dedup keys. */
+  const resolveOperationScope = async (
+    moduleName: string,
+  ): Promise<{ tenantId?: string; fp: string | null }> => {
+    const resolved = resolveRequestConfig(currentConfig, moduleConfigs[moduleName], undefined);
+    const tenantId = await resolveTenantId(
+      typeof resolved.tenancy.getTenantId === 'function'
+        ? { getTenantId: resolved.tenancy.getTenantId }
+        : {},
+    );
+    const fp = await authFingerprint(resolved.auth);
+    return { ...(tenantId ? { tenantId } : {}), fp };
+  };
+
+  const makeOperationRun =
+    (moduleName: string): OperationRunner =>
+    <T>(
+      operationKey: string,
+      execute: (signal?: AbortSignal) => Promise<T>,
+      opts?: OperationOptions,
+    ): Promise<T> => {
+      const attempts = opts?.retry?.attempts ?? 1;
+      const isRetryable = opts?.retry?.isRetryable ?? defaultOperationRetryable;
+      const retryShape: ResolvedRetryOptions = {
+        attempts,
+        backoff: opts?.retry?.backoff ?? 'exponential',
+        baseDelay: opts?.retry?.baseDelay ?? 500,
+        maxDelay: opts?.retry?.maxDelay ?? 30_000,
+        jitter: opts?.retry?.jitter ?? true,
+      };
+
+      const attemptOnce = async (): Promise<T> => {
+        const timeoutMs = opts?.timeout ?? 0;
+        const controller = new AbortController();
+        const external = opts?.signal;
+        let onExternalAbort: (() => void) | undefined;
+        if (external) {
+          if (external.aborted) controller.abort();
+          else {
+            onExternalAbort = () => controller.abort();
+            external.addEventListener('abort', onExternalAbort, { once: true });
+          }
+        }
+        let timedOut = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeoutError = (): TimeoutError =>
+          new TimeoutError({
+            message: `Operation "${moduleName}.${operationKey}" timed out after ${timeoutMs}ms`,
+            timeoutMs,
+          });
+
+        const normalize = (error: unknown): unknown => {
+          // On timeout, always surface TimeoutError even if `execute` rejected
+          // for its own reason after we aborted its signal.
+          if (timedOut) return timeoutError();
+          // Propagate real Errors (incl. ApiError) unchanged; only wrap thrown
+          // non-Error values so callers always catch something Error-shaped.
+          if (error instanceof Error) return error;
+          return new OperationError({
+            message: `Operation "${moduleName}.${operationKey}" failed`,
+            cause: error,
+          });
+        };
+
+        const cleanup = (): void => {
+          if (timer !== undefined) clearTimeout(timer);
+          if (onExternalAbort && external) external.removeEventListener('abort', onExternalAbort);
+        };
+
+        // Race execution against the timeout: `execute` may ignore the abort
+        // signal (arbitrary work), so the timeout promise guarantees rejection.
+        // The signal is still aborted for cooperative cancellation.
+        const work = execute(controller.signal).catch((error: unknown) => {
+          throw normalize(error);
+        });
+        if (timeoutMs <= 0) {
+          try {
+            return await work;
+          } finally {
+            cleanup();
+          }
+        }
+        try {
+          return await Promise.race([
+            work,
+            new Promise<never>((_, reject) => {
+              timer = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+                reject(timeoutError());
+              }, timeoutMs);
+            }),
+          ]);
+        } finally {
+          cleanup();
+        }
+      };
+
+      const withRetryLoop = async (): Promise<T> => {
+        let attempt = 0;
+        for (;;) {
+          attempt += 1;
+          try {
+            return await attemptOnce();
+          } catch (error) {
+            if (attempt >= attempts || isAbortError(error) || !isRetryable(error)) throw error;
+            await abortableDelay(computeBackoff(attempt, retryShape), opts?.signal);
+          }
+        }
+      };
+
+      const withDedup = async (): Promise<T> => {
+        if (opts?.dedupe !== true) return withRetryLoop();
+        const scope = await resolveOperationScope(moduleName);
+        // Mirror the HTTP pipeline: when the auth fingerprint cannot be resolved
+        // (getter threw -> null), scoping is unsafe, so run WITHOUT dedup rather
+        // than coalesce two principals under an ambiguous key (cross-principal
+        // result-sharing). Only dedup when the scope is fully resolved.
+        if (scope.fp === null) return withRetryLoop();
+        const key = `op:${moduleName}:${operationKey}:${scope.tenantId ?? ''}:${scope.fp}:${JSON.stringify(opts?.keyParts ?? null)}`;
+        return deduplicator.dedupe(key, withRetryLoop);
+      };
+
+      const useQueue = opts?.queue ?? queueEnabled;
+      return useQueue
+        ? queue.add(withDedup, opts?.signal ? { signal: opts.signal } : {})
+        : withDedup();
+    };
+
+  // --- Streaming primitive (ctx.stream) -----------------------------------
+  // Bypasses cache/dedup/validation (meaningless for a stream) and requires a
+  // stream-capable (fetch) adapter. Resolves auth/tenant/baseURL like a normal
+  // request, then hands the raw body stream to the chosen decoder.
+  const makeStream =
+    (moduleName: string): StreamRunner =>
+    <T = unknown>(
+      spec: {
+        method: ApiRequest['method'];
+        path: string;
+        pathParams?: Record<string, string | number>;
+        query?: Record<string, unknown>;
+        body?: unknown;
+      },
+      opts?: StreamOptions,
+    ): AsyncIterable<T> => {
+      async function* gen(): AsyncGenerator<T> {
+        const resolved = resolveRequestConfig(
+          currentConfig,
+          moduleConfigs[moduleName],
+          opts?.timeout !== undefined ? { timeout: opts.timeout } : undefined,
+        );
+        if (typeof adapter.stream !== 'function') {
+          throw new ConfigurationError(
+            'Streaming requires a stream-capable adapter. Use the fetch adapter (http.adapter: "fetch").',
+          );
+        }
+
+        const baseHeaders: Record<string, string> = { ...resolved.headers };
+        const tenantId = await resolveTenantId(
+          typeof resolved.tenancy.getTenantId === 'function'
+            ? { getTenantId: resolved.tenancy.getTenantId }
+            : {},
+        );
+        if (tenantId) baseHeaders[resolved.tenancy.headerName ?? 'X-Tenant-ID'] = tenantId;
+        const auth = await authManager.resolve(resolved.auth, resolved.skipAuth);
+        const headers = { ...baseHeaders, ...auth.headers };
+        const query = { ...spec.query, ...auth.query };
+
+        const url = buildUrl({
+          baseURL: resolved.baseURL,
+          path: spec.path,
+          pathParams: spec.pathParams,
+          query: serializeQuery(query).length > 0 ? query : undefined,
+        });
+
+        // Connect timeout: aborts if headers don't arrive in time. Caller signal
+        // is linked so an external abort cancels the connection too.
+        const controller = new AbortController();
+        const external = opts?.signal;
+        if (external) {
+          if (external.aborted) controller.abort();
+          else external.addEventListener('abort', () => controller.abort(), { once: true });
+        }
+        const connectMs = opts?.timeout ?? resolved.timeout;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        if (connectMs > 0) timer = setTimeout(() => controller.abort(), connectMs);
+
+        const request: ApiRequest = {
+          url,
+          method: spec.method,
+          headers,
+          timeout: connectMs,
+          moduleName,
+          methodName: 'stream',
+          signal: controller.signal,
+        };
+        if (spec.body !== undefined) request.body = spec.body;
+        if (auth.cookie) request.meta = { cookieAuth: true };
+
+        let res: Awaited<ReturnType<NonNullable<HttpAdapter['stream']>>>;
+        try {
+          res = await adapter.stream(request);
+        } finally {
+          if (timer !== undefined) clearTimeout(timer); // connect done; no per-chunk timeout here
+        }
+        if (res.status >= 400) {
+          throw new ApiError({
+            message: `Streaming request failed with status ${res.status}`,
+            status: res.status,
+            request,
+          });
+        }
+        if (!res.body) return;
+
+        const mode = opts?.mode ?? 'ndjson';
+        if (mode === 'raw') {
+          yield* iterateBytes(res.body, external) as AsyncGenerator<T>;
+        } else if (mode === 'sse') {
+          yield* parseSse(res.body, external) as AsyncGenerator<T>;
+        } else {
+          yield* parseNdjson<T>(res.body, external);
+        }
+      }
+      return gen();
+    };
+
+  const makeLogger = (moduleName: string): ModuleLogger => {
+    const prefix = `[@developerehsan/api-client:${moduleName}]`;
+    const enabled = logging !== undefined;
+    const verbose = currentConfig.dev?.logging === 'verbose';
+    return {
+      debug: (...args) => {
+        if (verbose) console.debug(prefix, ...args);
+      },
+      info: (...args) => {
+        if (enabled) console.info(prefix, ...args);
+      },
+      warn: (...args) => console.warn(prefix, ...args),
+      error: (...args) => console.error(prefix, ...args),
+    };
   };
 
   // --- Module proxies ------------------------------------------------------
@@ -694,18 +1156,30 @@ export function createClient(config: GlobalConfig): ApiClient {
 
     const context: ModuleContext = {
       request: (spec, perCall) => run(spec, { moduleName: name, methodName: 'request' }, perCall),
+      run: makeOperationRun(name),
+      stream: makeStream(name),
       client: undefined,
       moduleName: name,
+      emit: (event: string, payload?: unknown) => emit(`module:${name}:${event}`, payload),
+      logger: makeLogger(name),
+      config: () => resolveConfigSnapshot(name),
     };
 
-    // TODO(Phase 6): populate auto descriptors from the loaded schema when
-    // `definition.extends === 'auto'` or `modules.auto === true`.
-    const autoDescriptors: Record<string, AutoMethodDescriptor> = {};
+    // `extends: 'auto'` derives methods from the same-named OpenAPI tag in the
+    // runtime schema. The schema loads in the background, so descriptors are
+    // resolved lazily (dynamic) rather than snapshotted here.
+    const isAuto = definition.extends === 'auto';
 
     client[name] = createModuleProxy(
       {
         moduleName: name,
-        autoDescriptors: definition.extends === 'auto' ? autoDescriptors : undefined,
+        ...(isAuto
+          ? {
+              resolveAutoDescriptors: () => deriveAuto(name),
+              isSchemaReady,
+              whenSchemaReady,
+            }
+          : {}),
         methods: definition.methods,
         context,
         safeMode: currentConfig.safeMode ?? false,
@@ -731,6 +1205,9 @@ export function createClient(config: GlobalConfig): ApiClient {
     get: () => Object.freeze({ ...currentConfig }),
     update: (patch) => {
       currentConfig = { ...currentConfig, ...patch };
+    },
+    resolve: (moduleName, perCall): ResolvedConfigSnapshot => {
+      return resolveConfigSnapshot(moduleName, perCall);
     },
   };
 

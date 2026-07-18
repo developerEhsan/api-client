@@ -1,7 +1,7 @@
 {
   "name": "@developerehsan/api-client",
-  "version": "0.1.0",
-  "description": "Typed, modular, universal API client factory",
+  "version": "1.0.0",
+  "description": "Typed, modular, universal TypeScript API client factory with caching, deduplication, retries, auth, OpenAPI codegen, response validation, SSR RPC bridge, and TanStack Query support.",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
   "homepage": "https://github.com/developerEhsan/api-client#readme",
@@ -13,7 +13,34 @@
   "bugs": {
     "url": "https://github.com/developerEhsan/api-client/issues"
   },
-  "keywords": ["api-client", "typescript", "openapi", "codegen", "fetch", "axios", "ssr", "rpc"],
+  "keywords": [
+    "api-client",
+    "http-client",
+    "rest-client",
+    "rest",
+    "typescript",
+    "typed",
+    "openapi",
+    "openapi-typescript",
+    "codegen",
+    "fetch",
+    "axios",
+    "cache",
+    "deduplication",
+    "retry",
+    "backoff",
+    "auth",
+    "oauth2",
+    "multi-tenancy",
+    "validation",
+    "ssr",
+    "rpc",
+    "nextjs",
+    "edge",
+    "universal",
+    "tanstack-query",
+    "react-query"
+  ],
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -57,6 +84,11 @@
       "import": "./dist/browser.js",
       "require": "./dist/browser.cjs"
     },
+    "./cache-stores": {
+      "types": "./dist/cache-stores.d.ts",
+      "import": "./dist/cache-stores.js",
+      "require": "./dist/cache-stores.cjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -73,8 +105,12 @@
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
-    "axios": { "optional": true },
-    "zod": { "optional": true }
+    "axios": {
+      "optional": true
+    },
+    "zod": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "axios": "^1.7.0",

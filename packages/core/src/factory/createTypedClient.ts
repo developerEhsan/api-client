@@ -162,7 +162,8 @@ export interface TypedRequest<Ops, Desc extends GeneratedModuleMap> {
  * shape is what these methods help define. Composed cross-module calls against
  * generated methods are still fully typed.
  */
-export interface TypedModuleContext<Ops, Desc extends GeneratedModuleMap> {
+export interface TypedModuleContext<Ops, Desc extends GeneratedModuleMap>
+  extends Pick<ModuleContext, 'run' | 'stream' | 'emit' | 'logger' | 'config'> {
   request: TypedRequest<Ops, Desc>;
   readonly client: TypedModules<Ops, Desc>;
   readonly moduleName: string;
