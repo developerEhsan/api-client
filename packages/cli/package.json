@@ -1,7 +1,7 @@
 {
   "name": "@developerehsan/api-client-cli",
-  "version": "0.2.0",
-  "description": "Codegen CLI for @developerehsan/api-client",
+  "version": "1.0.0",
+  "description": "OpenAPI codegen CLI for @developerehsan/api-client — generate typed TypeScript types and module descriptors, validate specs, and diff generated output.",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
   "homepage": "https://github.com/developerEhsan/api-client#readme",
@@ -16,8 +16,13 @@
   "keywords": [
     "api-client",
     "openapi",
+    "openapi-typescript",
     "codegen",
-    "cli"
+    "typegen",
+    "cli",
+    "typescript",
+    "rest",
+    "swagger"
   ],
   "type": "module",
   "engines": {
@@ -30,9 +35,7 @@
   "bin": {
     "developerEhsan-api-client": "./dist/cli.js"
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "test": "vitest run --passWithNoTests",

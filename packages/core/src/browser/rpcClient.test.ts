@@ -86,9 +86,9 @@ describe('createRpcClient', () => {
 
 describe('transports', () => {
   it('serverActionTransport forwards the call verbatim', async () => {
-    let received: RpcCall | undefined;
-    const action = async (call: RpcCall): Promise<RpcResponse> => {
-      received = call;
+    let received: unknown;
+    const action = async (payload: unknown): Promise<RpcResponse> => {
+      received = payload;
       return { ok: true, data: 1 };
     };
     const t = serverActionTransport(action);
