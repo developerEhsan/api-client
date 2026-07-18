@@ -7,6 +7,7 @@
  */
 
 import type { ApiError } from '../errors/ApiError';
+import type { ComposedHooks } from '../factory/composeHooks';
 import type { AuthConfig } from './auth.types';
 import type { CacheConfig } from './cache.types';
 import type { ApiRequest, ApiResponse, ResponseType } from './http.types';
@@ -376,17 +377,24 @@ export interface DevConfig {
  */
 export interface LifecycleHooks {
   /**
-   * Inspect/transform the outgoing request before it is sent; return the
-   * (possibly modified) request. May be async.
+   * Inspect/transform the outgoing request before it is sent. Return the
+   * modified request, or `void`/`undefined` to pass it through unchanged. When
+   * set at multiple layers the hooks chain (each receives the previous output).
+   * May be async.
    * @default optional, unset means no hook
    */
-  onRequest?: (request: ApiRequest) => ApiRequest | Promise<ApiRequest>;
+  // biome-ignore lint/suspicious/noConfusingVoidType: `void` intentionally lets a hook omit a return to pass the request through unchanged.
+  onRequest?: (request: ApiRequest) => ApiRequest | void | Promise<ApiRequest | void>;
   /**
-   * Inspect/transform a successful response before it is returned. May be
-   * async.
+   * Inspect/transform a successful response before it is returned. Return the
+   * modified response, or `void`/`undefined` to pass it through unchanged.
+   * Chains across layers like {@link LifecycleHooks.onRequest}. May be async.
    * @default optional, unset means no hook
    */
-  onResponse?: <T>(response: ApiResponse<T>) => ApiResponse<T> | Promise<ApiResponse<T>>;
+  onResponse?: <T>(
+    response: ApiResponse<T>,
+    // biome-ignore lint/suspicious/noConfusingVoidType: `void` intentionally lets a hook omit a return to pass the response through unchanged.
+  ) => ApiResponse<T> | void | Promise<ApiResponse<T> | void>;
   /**
    * Observe every thrown error; cannot suppress it. May be async.
    * @default optional, unset means no hook
@@ -407,6 +415,24 @@ export interface LifecycleHooks {
    * @default optional, unset means no hook
    */
   onCacheMiss?: (key: string) => void;
+  /**
+   * Fires when a request resolves successfully (from network or cache), just
+   * before the response is returned to the caller. Observational; cannot alter
+   * the response (use `onResponse` to transform). May be async.
+   * @default optional, unset means no hook
+   */
+  onSuccess?: <T>(response: ApiResponse<T>) => void | Promise<void>;
+  /**
+   * Fires exactly once when a request settles, whether it succeeded, failed, or
+   * was cancelled — the `finally` of the request lifecycle. Exactly one of
+   * `response`/`error` is set on success/failure; both are `undefined` on
+   * cancellation. May be async.
+   * @default optional, unset means no hook
+   */
+  onSettled?: <T>(
+    response: ApiResponse<T> | undefined,
+    error: ApiError | undefined,
+  ) => void | Promise<void>;
 }
 
 /**
@@ -570,6 +596,14 @@ export interface ModuleConfig {
    * @default optional, unset means inherit the global validation
    */
   validation?: Partial<ValidationConfig>;
+  /**
+   * Lifecycle hooks for this module. These COMPOSE with the global hooks — both
+   * fire (global first, then module), and transforming hooks
+   * (`onRequest`/`onResponse`) chain their return values. They do not replace
+   * the global hooks. See {@link LifecycleHooks}.
+   * @default optional, unset means only global (and per-call) hooks run
+   */
+  hooks?: LifecycleHooks;
 }
 
 /**
@@ -634,6 +668,20 @@ export interface PerCallConfig {
    * @default 'json'
    */
   responseType?: ResponseType;
+  /**
+   * When `false`, bypasses the concurrency queue for this call (it runs
+   * immediately regardless of the configured concurrency limit). When omitted,
+   * the global queue setting applies.
+   * @default inherit the global `http.queue.enabled`
+   */
+  queue?: boolean;
+  /**
+   * Lifecycle hooks for just this call. These COMPOSE with the global and
+   * module hooks (all fire, per-call last; transforming hooks chain). See
+   * {@link LifecycleHooks}.
+   * @default optional, unset means only global/module hooks run
+   */
+  hooks?: LifecycleHooks;
 }
 
 /**
@@ -657,6 +705,48 @@ export interface ResolvedRequestConfig {
   skipDedup: boolean;
   responseType: ResponseType;
   safeMode: boolean;
+  /** Composed global+module+per-call lifecycle hooks (see {@link ComposedHooks}). */
+  hooks: ComposedHooks;
+  /** Per-call queue override; `undefined` means inherit the global setting. */
+  queue?: boolean;
+}
+
+/**
+ * A JSON-safe, secret-redacted view of the effective config a call would run
+ * with, produced by `client.config.resolve(module?, perCall?)`. Function-valued
+ * fields (auth token getters, tenancy resolvers, retry predicates, hooks) are
+ * never included — auth is reduced to its `strategy`, and hooks to a
+ * name -> registered? map — so the snapshot can be safely logged. Purely for
+ * debugging "why didn't my override apply".
+ */
+export interface ResolvedConfigSnapshot {
+  baseURL: string;
+  timeout: number;
+  headers: Record<string, string>;
+  auth: { strategy: AuthConfig['strategy'] };
+  cache: {
+    enabled?: boolean;
+    ttl?: number;
+    strategy?: CacheConfig['strategy'];
+    maxSize?: number;
+    bust?: boolean;
+  };
+  retry: {
+    attempts: number;
+    backoff: string;
+    baseDelay: number;
+    maxDelay: number;
+    jitter: boolean;
+  };
+  tenancy: { headerName?: string };
+  validation: ValidationConfig;
+  skipAuth: boolean;
+  skipDedup: boolean;
+  responseType: ResponseType;
+  safeMode: boolean;
+  queue?: boolean;
+  /** Which lifecycle hooks are registered at any layer (global/module/per-call). */
+  hooks: Record<keyof LifecycleHooks, boolean>;
 }
 
 export type { SchemaAST };

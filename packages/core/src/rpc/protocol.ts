@@ -65,6 +65,25 @@ export interface RpcErr {
 /** Uniform result of a handled RPC call. `handle()` never rejects with this. */
 export type RpcResponse = RpcOk | RpcErr;
 
+/**
+ * A batch of calls coalesced by the browser client into one round-trip. The
+ * server validates and dispatches each sub-call INDIVIDUALLY (allowlist +
+ * authorize + input caps run per entry), so batching is never an allowlist
+ * bypass. Responses come back positionally as `RpcResponse[]`.
+ */
+export interface RpcBatchRequest {
+  __rpcBatch: RpcCall[];
+}
+
+/** Type guard for a batch envelope (used by the server to route the payload). */
+export function isRpcBatchRequest(value: unknown): value is RpcBatchRequest {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as { __rpcBatch?: unknown }).__rpcBatch)
+  );
+}
+
 /** Type guard for the sanitized error shape. */
 export function isRpcErrorShape(value: unknown): value is RpcErrorShape {
   return (

@@ -1,5 +1,5 @@
-import { PetDemo } from './PetDemo';
+import { ProductDemo } from './ProductDemo';
 
 export default function Home() {
-  return <PetDemo />;
+  return <ProductDemo />;
 }

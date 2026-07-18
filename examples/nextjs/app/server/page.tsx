@@ -1,4 +1,6 @@
 import { api } from '@/lib/api/api.config';
+import { ApiError } from '@developerehsan/api-client';
+
 /**
  * Server Component — direct usage, NO bridge needed.
  *
@@ -10,15 +12,18 @@ import { api } from '@/lib/api/api.config';
  *
  * `force-dynamic` keeps this out of the static build (it fetches per request).
  */
-import { ApiError } from '@developerehsan/api-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ServerPage() {
   let body: string;
   try {
-    const inventory = await api.store.getInventory({}, {});
-    body = JSON.stringify(inventory, null, 2);
+    const list = await api.products.listProducts({ limit: 5 });
+    body = JSON.stringify(
+      list.products.map((p) => p.title),
+      null,
+      2,
+    );
   } catch (error) {
     body =
       error instanceof ApiError
@@ -27,19 +32,32 @@ export default async function ServerPage() {
   }
 
   return (
-    <main
-      style={{ maxWidth: 680, margin: '40px auto', fontFamily: 'system-ui', padding: '0 16px' }}
-    >
-      <h1>
-        Server Component — direct <code>api</code>
-      </h1>
-      <p style={{ color: '#666' }}>
-        Fetched on the server with <code>await api.store.getInventory()</code>. No bridge, no client
-        JS for this call.
-      </p>
-      <pre style={{ background: '#f4f4f4', padding: 12, borderRadius: 6, overflowX: 'auto' }}>
-        {body}
-      </pre>
+    <main className="mx-auto max-w-3xl px-4 py-12 font-sans text-slate-900 sm:px-6 lg:px-8">
+      <div className="mb-10 space-y-3">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          Server Component — Direct API
+        </h1>
+        <p className="text-slate-500 leading-relaxed">
+          Fetched on the server directly with{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm text-slate-800">
+            await api.products.listProducts()
+          </code>
+          . No bridge, no client JS required for this call. The request never touches the browser,
+          keeping base URLs and paths completely secure.
+        </p>
+      </div>
+
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
+          <h2 className="font-semibold text-slate-800">Server Rendered Output</h2>
+        </div>
+
+        <div className="p-6">
+          <pre className="max-h-96 overflow-x-auto rounded-lg bg-slate-50 p-4 font-mono text-sm text-slate-800 shadow-inner border border-slate-100">
+            {body}
+          </pre>
+        </div>
+      </section>
     </main>
   );
 }
