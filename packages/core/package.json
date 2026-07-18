@@ -50,9 +50,7 @@
     "access": "public",
     "provenance": true
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

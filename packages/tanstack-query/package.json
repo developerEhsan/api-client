@@ -37,9 +37,7 @@
     "access": "public",
     "provenance": true
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "exports": {
     "./react": {
       "types": "./dist/react.d.ts",
