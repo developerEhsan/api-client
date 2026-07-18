@@ -70,6 +70,14 @@ export interface SafePerCall {
  * Strip everything the client is not allowed to control (S4). `baseURL`,
  * `adapter`, `headers`, `auth`, and `signal` are dropped so the client cannot
  * redirect the server (SSRF) or inject auth. Only a clamped `timeout` survives.
+ *
+ * SECURITY INVARIANT (closed-set allowlist): this function must return an object
+ * whose ONLY possible key is `timeout`. Every field added to `PerCallConfig` in
+ * the future is RPC-injectable by default and stays stripped here unless it is
+ * explicitly, deliberately added to this allowlist AFTER a security review — in
+ * particular any hook (`onRequest`/`onError`/...), `headers`, `auth`, or
+ * transport override must never be honored from the wire. The closed-set test in
+ * `rpc.test.ts` (`Object.keys(sanitized)` ⊆ {'timeout'}) fails if this widens.
  */
 export function sanitizePerCall(raw: unknown, maxTimeout: number): SafePerCall {
   if (typeof raw !== 'object' || raw === null) return {};
