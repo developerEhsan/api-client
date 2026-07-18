@@ -99,6 +99,12 @@ already active.
 | **Validation** | Runtime response validation + schema drift detection |
 | **TanStack Query** | Typed `queryOptions` / `mutationOptions` / `infiniteQueryOptions` for React, Vue, Solid |
 | **SSR RPC bridge** | Call `api.module.method()` from client components **without** exposing the backend URL, paths, or OpenAPI to the browser |
+| **RPC batching** | Coalesce same-tick bridge calls into one round-trip; each sub-call validated + authorized individually |
+| **RPC rate limiter** | Built-in `createRateLimiter` for the handler `onRequest` (per-IP / per-session, pluggable store) |
+| **Streaming** | `ctx.stream()` → `AsyncIterable` for NDJSON / SSE / raw byte streams |
+| **Modules beyond HTTP** | `ctx.run()` runs any async logic with opt-in queue/dedup/retry/timeout; `ctx.emit` / `ctx.logger` / `ctx.config` |
+| **Cache persistence** | Pluggable L2 stores (IndexedDB / Redis) behind the in-memory LRU |
+| **Hooks** | `onRequest`/`onResponse`/`onError`/`onRetry`/`onSuccess`/`onSettled` composed across global → module → per-call |
 | **Testing** | `createMockClient` + `MockAdapter` |
 
 ## Subpath exports
@@ -108,13 +114,15 @@ already active.
 | `@developerehsan/api-client` | The runtime library |
 | `@developerehsan/api-client/codegen` | Node-only codegen functions (used by the CLI) |
 | `@developerehsan/api-client/testing` | Mock client & adapter |
-| `@developerehsan/api-client/server` | SSR RPC bridge — server half (`createRpcHandler`, Next/route glue) |
-| `@developerehsan/api-client/browser` | SSR RPC bridge — dependency-free browser client (`createRpcClient`, transports) |
+| `@developerehsan/api-client/server` | SSR RPC bridge — server half (`createRpcHandler`, batching, `createRateLimiter`, Next / TanStack Start / Remix glue) |
+| `@developerehsan/api-client/browser` | SSR RPC bridge — dependency-free browser client (`createRpcClient`, transports, batching) |
+| `@developerehsan/api-client/cache-stores` | Pluggable persistent cache stores (memory / IndexedDB / Redis) |
 
 ## Related packages
 
 - [`@developerehsan/api-client-query`](https://www.npmjs.com/package/@developerehsan/api-client-query) — TanStack Query v5 integration for React, Vue, and Solid.
 - [`@developerehsan/api-client-cli`](https://www.npmjs.com/package/@developerehsan/api-client-cli) — codegen CLI (`generate` / `validate` / `diff`).
+- [`@developerehsan/api-client-vite`](https://www.npmjs.com/package/@developerehsan/api-client-vite) — Vite plugin that auto-generates the typed client on dev/build (also covers TanStack Start).
 
 ## Documentation
 

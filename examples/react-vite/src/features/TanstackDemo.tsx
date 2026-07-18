@@ -1,99 +1,105 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 /**
  * TANSTACK QUERY USAGE
  * --------------------
- * The same typed client, driven through React Query. `q.pet.queryOptions.*`
- * and `q.pet.mutationOptions.*` return ready-made option objects:
+ * The same typed client, driven through React Query. Per module you get
+ * `queryOptions`, `infiniteQueryOptions` (for paginated GETs), and
+ * `mutationOptions`:
  *
- *   useQuery(q.pet.queryOptions.findPetsByStatus({ status }))
- *   useMutation(q.pet.mutationOptions.addPet({ onSuccess: ... }))
+ *   useInfiniteQuery(q.products.infiniteQueryOptions.listProducts({ limit: 8 }))
+ *   useMutation(q.products.mutationOptions.addProduct({ onSuccess: … }))
  *
- * Benefits over calling directly: React Query handles caching/refetch/loading
- * state and dedupes across components; the api client dedupes at the network
- * level and adds retries/timeouts. Query keys are stable so invalidation after
- * a mutation refetches the list automatically.
+ * React Query handles caching/refetch/pagination state; the api client dedupes
+ * at the network level and adds retries/timeouts. Query keys are stable, so
+ * invalidation after a mutation refetches automatically.
  */
 import { useState } from 'react';
 import { Button, Panel, Spinner, StatusBadge } from '../components/ui';
 import { q } from '../lib/api/query';
-import type { Pet } from '../lib/api/types/generated/api.types';
-
-type Status = 'available' | 'pending' | 'sold';
+import type { Product, ProductList } from '../lib/api/types/generated/api.types';
 
 export function TanstackDemo() {
   const queryClient = useQueryClient();
-  const [status, setStatus] = useState<Status>('available');
-  const [name, setName] = useState('Rex the Demo Dog');
+  const [title, setTitle] = useState('Demo Widget');
 
-  // QUERY — typed params in, typed data out.
-  const petsQuery = useQuery(q.pet.queryOptions.findPetsByStatus({ status }));
+  // INFINITE QUERY — paginated GET, paged by `skip` (configured in query.ts).
+  const list = useInfiniteQuery(q.products.infiniteQueryOptions.listProducts({ limit: 8 }));
 
-  // MUTATION — create a pet, then invalidate the list so it refetches.
-  const addPet = useMutation(
-    q.pet.mutationOptions.addPet({
+  // MUTATION — create a product, then invalidate the list so it refetches.
+  const addProduct = useMutation(
+    q.products.mutationOptions.addProduct({
       onSuccess: () => {
-        // Invalidate every 'pet' query for this integration.
-        void q.pet.invalidateQueries(queryClient);
+        // Invalidate every 'products' query for this integration.
+        void q.products.invalidateQueries(queryClient);
       },
     }),
   );
 
-  const pets = (petsQuery.data as Pet[] | undefined) ?? [];
+  const pages = (list.data?.pages as ProductList[] | undefined) ?? [];
+  const products: Product[] = pages.flatMap((p) => p.products);
+  const total = pages[0]?.total ?? 0;
 
   return (
     <Panel
-      title="Browse & create pets (TanStack Query)"
-      subtitle="useQuery + useMutation built from the same typed client. Creating a pet invalidates the list and refetches."
+      title="Infinite list & create (TanStack Query)"
+      subtitle="useInfiniteQuery pages through products by skip; useMutation creates one and invalidates the list."
     >
       <div className="toolbar">
-        <label>
-          Status&nbsp;
-          <select value={status} onChange={(e) => setStatus(e.target.value as Status)}>
-            <option value="available">available</option>
-            <option value="pending">pending</option>
-            <option value="sold">sold</option>
-          </select>
-        </label>
-        {petsQuery.isFetching ? <Spinner /> : null}
-        <span className="muted">{pets.length} pets</span>
+        {list.isFetching ? <Spinner /> : null}
+        <span className="muted">
+          {products.length} of {total} loaded
+        </span>
       </div>
 
       <div className="toolbar">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="New pet name" />
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="New product title"
+        />
         <Button
-          disabled={addPet.isPending}
+          disabled={addProduct.isPending}
           onClick={() =>
             // The mutation's variables are the operation input — here the `body`.
-            addPet.mutate({
-              body: { name, photoUrls: [], status: 'available' },
-            })
+            addProduct.mutate({ body: { title, price: 9.99, category: 'demo' } })
           }
         >
-          {addPet.isPending ? 'Adding…' : 'Add pet (addPet)'}
+          {addProduct.isPending ? 'Adding…' : 'Add product (addProduct)'}
         </Button>
-        {addPet.isSuccess ? <span className="muted">created ✓ (list refetched)</span> : null}
+        {addProduct.isSuccess ? <span className="muted">created ✓ (list refetched)</span> : null}
       </div>
 
-      {addPet.isError ? (
+      {addProduct.isError ? (
         <div className="alert">
-          addPet failed: {String((addPet.error as Error).message)} (the public Petstore occasionally
-          500s on writes — the client retried, then surfaced a typed ApiError)
+          addProduct failed: {String((addProduct.error as Error).message)}
         </div>
       ) : null}
-
-      {petsQuery.isError ? (
-        <div className="alert">{String((petsQuery.error as Error).message)}</div>
-      ) : null}
+      {list.isError ? <div className="alert">{String((list.error as Error).message)}</div> : null}
 
       <div className="grid">
-        {pets.slice(0, 12).map((pet) => (
-          <div key={pet.id} className="card card--static">
+        {products.map((p) => (
+          <div key={p.id} className="card card--static">
             <div className="card__title">
-              {pet.name} <StatusBadge status={pet.status} />
+              {p.title} <StatusBadge status={p.category} />
             </div>
-            <div className="muted">#{pet.id}</div>
+            <div className="muted">
+              #{p.id} · ${p.price}
+            </div>
           </div>
         ))}
+      </div>
+
+      <div className="toolbar">
+        <Button
+          disabled={!list.hasNextPage || list.isFetchingNextPage}
+          onClick={() => void list.fetchNextPage()}
+        >
+          {list.isFetchingNextPage
+            ? 'Loading…'
+            : list.hasNextPage
+              ? 'Load more'
+              : 'All products loaded'}
+        </Button>
       </div>
     </Panel>
   );
