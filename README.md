@@ -85,6 +85,13 @@ code stays clean.
 | **Validation** | Runtime response validation + schema drift detection |
 | **TanStack Query** | Typed `queryOptions` / `mutationOptions` / `infiniteQueryOptions` for React, Vue, Solid |
 | **SSR RPC bridge** | Call `api.module.method()` from client components in Next.js / TanStack Start **without** exposing the backend URL, paths, or OpenAPI to the browser |
+| **RPC batching** | Coalesce same-tick bridge calls into one round-trip; each sub-call validated + authorized individually |
+| **RPC rate limiter** | Built-in `createRateLimiter` for the handler `onRequest` (per-IP / per-session, pluggable store) |
+| **Streaming** | `ctx.stream()` → `AsyncIterable` for NDJSON / SSE / raw byte streams (client-side) |
+| **Modules beyond HTTP** | `ctx.run()` runs any async logic with opt-in queue/dedup/retry/timeout; `ctx.emit` / `ctx.logger` / `ctx.config` |
+| **Cache persistence** | Pluggable L2 stores (IndexedDB / Redis) behind the in-memory LRU |
+| **Auto codegen** | Config-file-driven `generate` / watch / `--check`; Vite plugin + Next.js integration |
+| **Hooks** | `onRequest`/`onResponse`/`onError`/`onRetry`/`onSuccess`/`onSettled` composed across global → module → per-call |
 | **Testing** | `createMockClient` + `MockAdapter` |
 
 ### Packages
@@ -1058,7 +1065,7 @@ ergonomics.
 ```text
  Browser (client component)                Server (Node / edge)
  ───────────────────────────               ─────────────────────────────
- api.pet.getPetById({ petId })             createRpcHandler(realApi, { expose })
+ api.products.getProductById({ id })       createRpcHandler(realApi, { expose })
    │  proxy, typed via `typeof serverApi`     │  allowlist → authorize → dispatch
    │  (type-only, erased at build)            ▼  runs the REAL client (holds secrets)
    ▼  POST same-origin { module,method,args }
@@ -1150,7 +1157,7 @@ import { ApiError } from '@developerehsan/api-client/browser'
 
 async function load() {
   try {
-    const pet = await api.pet.getPetById({ petId: 1 }) // → Pet, fully typed
+    const product = await api.products.getProductById({ id: 1 }) // → Product, typed
   } catch (e) {
     if (e instanceof ApiError) console.log(e.status, e.message) // rehydrated!
   }
@@ -1170,7 +1177,7 @@ export const q = createQueryIntegration(api, { modules: rpcModules })
 
 ### Cancellation
 
-Pass an `AbortSignal` as usual — `api.pet.getPetById({ petId }, { signal })`. The
+Pass an `AbortSignal` as usual — `api.products.getProductById({ id }, { signal })`. The
 signal is **not** sent over the wire (it isn't serializable); it's honored
 locally and rejects the promise with an `AbortError` on abort.
 
@@ -1189,7 +1196,7 @@ The handler enforces all of the following before dispatch:
 | Error leakage | Only `{ name, status, code, message }` cross the wire; stacks, request URLs, and headers never do (`details` only when `dev: true`) |
 
 > **Note:** the bridge client *type* mirrors your whole API surface, so
-> `api.pet.deletePet(...)` still type-checks even if it isn't exposed — the
+> `api.products.deleteProduct(...)` still type-checks even if it isn't exposed — the
 > `expose` allowlist is the runtime gate, and an un-exposed call is denied.
 
 A complete, runnable example lives in [`examples/nextjs`](./examples/nextjs).
@@ -1423,28 +1430,41 @@ Monorepo layout: `packages/core` (runtime), `packages/cli` (codegen),
 
 ---
 
-## 28. Roadmap (planned features)
+## 28. Roadmap
 
-These are planned or under consideration — not yet shipped. Contributions and
-feedback welcome.
+### Shipped (major overhaul)
 
-- **`extends: 'auto'` auto-modules from the runtime schema** — build module
-  methods directly from a runtime-fetched OpenAPI document (today auto-modules
-  come from the build-time codegen descriptor; the runtime path is stubbed).
-- **Batching over the RPC bridge** — coalesce multiple `api.*.*()` calls made in
-  the same tick into a single round-trip, with per-sub-call allowlist/authorize.
-- **Streaming / async-iterable responses** — first-class support for
-  `text/event-stream` and chunked responses through the pipeline and the bridge.
-- **Built-in rate limiter** — a ready-to-use limiter for `onRequest` (per-IP /
-  per-session), instead of only the hook point.
-- **Richer per-module method-name autocomplete in `config.modules`** — close the
-  one remaining inference gap so the plain-object form matches the definer form.
-- **First-party TanStack Start & Remix adapters** — thin glue on top of the
-  generic HTTP transport, mirroring the Next.js Server Action helper.
+- **`extends: 'auto'` auto-modules from the runtime schema** — module methods
+  are now derived at runtime from a fetched OpenAPI document (resolved lazily as
+  the schema loads).
+- **Batching over the RPC bridge** — `createRpcClient(transport, { batch: true })`
+  coalesces same-tick calls into one round-trip; each sub-call is validated and
+  authorized individually server-side (`maxBatchSize`, nested-batch rejection).
+- **Client-side streaming / async-iterable responses** — `ctx.stream(spec, { mode:
+  'ndjson' | 'sse' | 'raw' })` returns an `AsyncIterable`, plus `parseSse` /
+  `parseNdjson` helpers. (Streaming *through the RPC bridge* remains a follow-up.)
+- **Built-in rate limiter** — `createRateLimiter({ windowMs, max })` wires into the
+  handler `onRequest` (per-IP with `trustProxy`, or a custom `keyFor`; pluggable store).
+- **Pluggable cache persistence** — `@developerehsan/api-client/cache-stores`
+  (memory / IndexedDB / Redis) layered behind the in-memory LRU via
+  `cache.persistentStore`.
+- **First-party TanStack Start & Remix adapters** — `createStartRpcRoute` /
+  `createRemixRpcAction` over the framework-agnostic route handler.
+- **Config-driven codegen + framework glue** — `api-client.config.*`, watch with
+  remote-URL polling, `generate --check` for CI, plus `withApiClientCodegen`
+  (Next.js) and `@developerehsan/api-client-vite` (Vite / TanStack Start).
+- **Codegen: React Query hooks emission** — `emitReactQueryHooks` emits typed
+  `useXxx` hooks alongside the option factories.
+- **Modules beyond HTTP** — `ctx.run` gives any async module logic opt-in
+  queue / dedup / retry / timeout; `ctx.emit` / `ctx.logger` / `ctx.config` round
+  out the module context.
+
+### Still planned
+
+- **Richer per-module method-name autocomplete in the plain-object `config.modules`**
+  form — use `createModuleDefiner` today for full operation-aware autocomplete.
+- **Streaming through the RPC bridge** — route-only, with duration/idle/backpressure
+  hardening (Server Actions can't stream).
 - **OpenAPI 3.1 & webhooks** — expand the parser beyond 3.0.x.
-- **GraphQL transport** — an alternative adapter for GraphQL backends behind the
-  same module/method surface.
-- **Response caching persistence** — pluggable stores (IndexedDB, Redis) beyond
-  the in-memory LRU.
-- **Codegen: React Query hooks emission** — optionally emit `useXxx` hooks in
-  addition to the option factories.
+- **GraphQL transport** — an alternative adapter behind the same module/method
+  surface (largely a `ctx.run`-based module on top of the new runner).

@@ -1,7 +1,7 @@
 {
   "name": "@developerehsan/api-client",
-  "version": "0.2.0",
-  "description": "Typed, modular, universal API client factory",
+  "version": "1.0.0",
+  "description": "Typed, modular, universal TypeScript API client factory with caching, deduplication, retries, auth, OpenAPI codegen, response validation, SSR RPC bridge, and TanStack Query support.",
   "license": "MIT",
   "author": "EHSAN <ehsanshahid787@gmail.com>",
   "homepage": "https://github.com/developerEhsan/api-client#readme",
@@ -15,13 +15,31 @@
   },
   "keywords": [
     "api-client",
+    "http-client",
+    "rest-client",
+    "rest",
     "typescript",
+    "typed",
     "openapi",
+    "openapi-typescript",
     "codegen",
     "fetch",
     "axios",
+    "cache",
+    "deduplication",
+    "retry",
+    "backoff",
+    "auth",
+    "oauth2",
+    "multi-tenancy",
+    "validation",
     "ssr",
-    "rpc"
+    "rpc",
+    "nextjs",
+    "edge",
+    "universal",
+    "tanstack-query",
+    "react-query"
   ],
   "type": "module",
   "sideEffects": false,
@@ -32,9 +50,7 @@
     "access": "public",
     "provenance": true
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -67,6 +83,11 @@
       "edge-light": "./dist/browser.js",
       "import": "./dist/browser.js",
       "require": "./dist/browser.cjs"
+    },
+    "./cache-stores": {
+      "types": "./dist/cache-stores.d.ts",
+      "import": "./dist/cache-stores.js",
+      "require": "./dist/cache-stores.cjs"
     },
     "./package.json": "./package.json"
   },

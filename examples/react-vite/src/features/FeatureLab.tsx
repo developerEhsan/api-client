@@ -13,7 +13,7 @@ import {
  * note from each handler, so you can watch the pipeline work.
  *
  * Covered: caching/SWR, deduplication, timeout, cancellation, typed errors,
- * safeMode, and a composed multi-endpoint call.
+ * safeMode, a composed multi-endpoint call, and ctx.run (non-HTTP logic).
  */
 import { useState } from 'react';
 import { Button, LogView, Panel, useEventLog } from '../components/ui';
@@ -22,15 +22,15 @@ import { api } from '../lib/api/api.config';
 // A second client with safeMode enabled — methods return a discriminated
 // { success, data } | { success, error } result instead of throwing.
 const safeApi = createClient({
-  baseURL: 'https://petstore3.swagger.io/api/v3',
+  baseURL: 'https://dummyjson.com',
   openapi: { mode: 'runtime' },
   safeMode: true,
   modules: {
     auto: false,
-    pet: defineModule({
+    products: defineModule({
       methods: {
-        get: async (ctx, petId: number) =>
-          ctx.request({ method: 'GET', path: '/pet/{petId}', pathParams: { petId } }),
+        get: async (ctx, id: number) =>
+          ctx.request({ method: 'GET', path: '/products/{id}', pathParams: { id } }),
       },
     }),
   },
@@ -61,12 +61,12 @@ export function FeatureLab() {
             disabled={!!busy}
             onClick={() =>
               run('cache', async () => {
-                push('info', 'cache: calling getInventory() twice…');
+                push('info', 'cache: calling getProductById({ id: 1 }) twice…');
                 const t1 = performance.now();
-                await api.store.getInventory();
+                await api.products.getProductById({ id: 1 });
                 const first = Math.round(performance.now() - t1);
                 const t2 = performance.now();
-                await api.store.getInventory();
+                await api.products.getProductById({ id: 1 });
                 const second = Math.round(performance.now() - t2);
                 push('info', `cache: first ${first}ms → second ${second}ms (served from cache)`);
               })
@@ -82,9 +82,7 @@ export function FeatureLab() {
               run('dedup', async () => {
                 push('info', 'dedup: firing 6 identical requests at once…');
                 await Promise.all(
-                  Array.from({ length: 6 }, () =>
-                    api.pet.findPetsByStatus({ status: 'available' }),
-                  ),
+                  Array.from({ length: 6 }, () => api.products.listProducts({ limit: 5 })),
                 );
                 push('info', "dedup: note only ONE '→ request' above — the rest shared it.");
               })
@@ -100,7 +98,7 @@ export function FeatureLab() {
               run('timeout', async () => {
                 push('info', 'timeout: per-call timeout of 1ms → should abort…');
                 try {
-                  await api.pet.findPetsByStatus({ status: 'available' }, { timeout: 1 });
+                  await api.products.listProducts({ limit: 5 }, { timeout: 1 });
                   push('info', 'timeout: (network was faster than 1ms — try again)');
                 } catch (e) {
                   push(
@@ -123,7 +121,7 @@ export function FeatureLab() {
               run('cancel', async () => {
                 push('info', 'cancel: starting request then aborting it…');
                 const ac = new AbortController();
-                const p = api.pet.findPetsByStatus({ status: 'pending' }, { signal: ac.signal });
+                const p = api.products.listProducts({ limit: 5 }, { signal: ac.signal });
                 ac.abort();
                 try {
                   await p;
@@ -145,9 +143,9 @@ export function FeatureLab() {
             disabled={!!busy}
             onClick={() =>
               run('error', async () => {
-                push('info', 'error: getPetById({ petId: -1 }) → expect 404…');
+                push('info', 'error: getProductById({ id: 0 }) → expect 404…');
                 try {
-                  await api.pet.getPetById({ petId: -1 });
+                  await api.products.getProductById({ id: 0 });
                 } catch (e) {
                   if (e instanceof ApiError) {
                     push('info', `error: ApiError status=${e.status} code=${e.code ?? '—'} ✓`);
@@ -166,15 +164,15 @@ export function FeatureLab() {
             disabled={!!busy}
             onClick={() =>
               run('safe', async () => {
-                push('info', 'safeMode: calling safeApi.pet.get(-1) — no throw…');
-                const safePet = safeApi.pet as {
+                push('info', 'safeMode: calling safeApi.products.get(0) — no throw…');
+                const safeProducts = safeApi.products as {
                   get: (
-                    petId: number,
+                    id: number,
                   ) => Promise<
                     { success: true; data: unknown } | { success: false; error: ApiError }
                   >;
                 };
-                const result = await safePet.get(-1);
+                const result = await safeProducts.get(0);
                 if (result.success) push('info', 'safeMode: success:true');
                 else push('info', `safeMode: success:false, error.status=${result.error.status} ✓`);
               })
@@ -188,19 +186,27 @@ export function FeatureLab() {
             disabled={!!busy}
             onClick={() =>
               run('composed', async () => {
-                push('info', 'composed: getPetById + getInventory in parallel…');
-                const [pet, inventory] = await Promise.all([
-                  api.pet.getPetById({ petId: 1 }).catch(() => null),
-                  api.store.getInventory(),
-                ]);
-                push(
-                  'info',
-                  `composed: pet=${pet?.name ?? 'n/a'}, inventory keys=${Object.keys(inventory).length} ✓`,
-                );
+                push('info', 'composed: getWithSiblings(1) — product + category siblings…');
+                const { product, siblings } = await api.products.getWithSiblings(1);
+                push('info', `composed: "${product.title}" + ${siblings.length} siblings ✓`);
               })
             }
           >
             Composed call
+          </Button>
+
+          {/* CTX.RUN — non-HTTP module logic */}
+          <Button
+            disabled={!!busy}
+            onClick={() =>
+              run('ctxrun', async () => {
+                push('info', 'ctx.run: analytics.summarize() — deduped + retried…');
+                const s = await api.analytics.summarize();
+                push('info', `ctx.run: ${s.count} products, avg $${s.avgPrice} ✓`);
+              })
+            }
+          >
+            ctx.run (analytics)
           </Button>
 
           <Button className="btn--ghost" onClick={clear}>

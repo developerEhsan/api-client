@@ -9,26 +9,30 @@ import { api } from '../lib/api/api.config';
 import { q } from '../lib/api/query';
 
 async function demo() {
-  // Fully inferred: `pet` is typed `Pet`, so `.name` is a `string`.
-  const pet = await api.pet.getPetById({ petId: 1 });
-  console.log(pet.name.toUpperCase());
+  // Fully inferred: `product` is typed `Product`, so `.title` is a `string`.
+  const product = await api.products.getProductById({ id: 1 });
+  console.log(product.title.toUpperCase());
 
-  // @ts-expect-error petId must be a number — caught in JS too.
-  await api.pet.getPetById({ petId: 'not-a-number' });
+  // @ts-expect-error id must be a number — caught in JS too.
+  await api.products.getProductById({ id: 'not-a-number' });
 
   // @ts-expect-error the client only exposes real endpoints — no typo methods.
-  await api.pet.thisMethodDoesNotExist();
+  await api.products.thisMethodDoesNotExist();
 
-  // The config-declared module is visible with its methods.
-  const invoices = await api.invoices.getInvoices();
-  console.log(invoices.data);
+  // A config-declared custom method is visible with its real return type.
+  const summary = await api.analytics.summarize();
+  console.log(summary.count, summary.avgPrice);
 
   // TanStack Query factories are typed for JS users as well.
-  const opts = q.pet.queryOptions.findPetsByStatus({ status: 'available' });
+  const opts = q.products.queryOptions.getProductById({ id: 1 });
   console.log(opts.queryKey);
 
-  // @ts-expect-error placeOrder is a POST → mutation only, not a query.
-  void q.store.queryOptions.placeOrder;
+  // Paginated GETs expose an infinite-query factory too.
+  const infinite = q.products.infiniteQueryOptions.listProducts({ limit: 10 });
+  console.log(infinite.queryKey);
+
+  // @ts-expect-error addProduct is a POST → mutation only, not a query.
+  void q.products.queryOptions.addProduct;
 }
 
 void demo;
