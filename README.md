@@ -15,6 +15,16 @@ This is the complete guide. It starts from zero and walks through **every**
 feature. If you have never used the library before, read top to bottom once —
 after that you can jump straight to the reference tables.
 
+> 📖 **Prefer bite-sized, per-feature pages?** The [`docs/`](./docs) folder splits
+> this guide into one focused page per feature, each cross-linked to the exact
+> **example source** that demonstrates it. Start at the
+> [docs index](./docs/README.md).
+>
+> 🧪 **Want to see it run?** Two apps back every feature with no backend setup:
+> [`examples/react-vite`](./examples/react-vite) (client-side: direct client,
+> TanStack Query, an interactive Feature Lab) and
+> [`examples/nextjs`](./examples/nextjs) (the SSR RPC bridge).
+
 ---
 
 ## Table of contents

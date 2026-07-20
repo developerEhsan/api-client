@@ -131,6 +131,11 @@ caching, retries, multi-tenancy, the SSR RPC bridge, TanStack Query integration,
 codegen, testing, and a full API reference — lives in the
 **[project README on GitHub](https://github.com/developerEhsan/api-client#readme)**.
 
+Prefer bite-sized, per-feature pages (each cross-linked to a runnable example)?
+See the **[`docs/` folder](https://github.com/developerEhsan/api-client/tree/master/docs)**
+and the two demo apps in
+**[`examples/`](https://github.com/developerEhsan/api-client/tree/master/examples)**.
+
 ## License
 
 [MIT](https://github.com/developerEhsan/api-client/blob/master/LICENSE) © EHSAN

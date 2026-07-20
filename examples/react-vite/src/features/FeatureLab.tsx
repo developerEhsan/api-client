@@ -12,8 +12,9 @@ import {
  * mirrors the client's real events (api.on 'request'/'response'/'error') plus a
  * note from each handler, so you can watch the pipeline work.
  *
- * Covered: caching/SWR, deduplication, timeout, cancellation, typed errors,
- * safeMode, a composed multi-endpoint call, and ctx.run (non-HTTP logic).
+ * Covered: caching/SWR, deduplication, retries/backoff, timeout, cancellation,
+ * typed errors, safeMode, environment switching, a composed multi-endpoint call,
+ * and ctx.run (non-HTTP logic).
  */
 import { useState } from 'react';
 import { Button, LogView, Panel, useEventLog } from '../components/ui';
@@ -89,6 +90,53 @@ export function FeatureLab() {
             }
           >
             Deduplication (6→1)
+          </Button>
+
+          {/* RETRY & BACKOFF */}
+          <Button
+            disabled={!!busy}
+            onClick={() =>
+              run('retry', async () => {
+                push('info', 'retry: calling an always-500 endpoint → watch it retry, then fail…');
+                try {
+                  await api.debug.failing();
+                } catch (e) {
+                  if (e instanceof ApiError) {
+                    push(
+                      'info',
+                      `retry: ApiError status=${e.status} after ${e.retryCount ?? 0} retries ✓`,
+                    );
+                  } else {
+                    push('info', `retry: ${String(e)}`);
+                  }
+                }
+              })
+            }
+          >
+            Retry & backoff (500)
+          </Button>
+
+          {/* ENVIRONMENTS */}
+          <Button
+            disabled={!!busy}
+            onClick={() =>
+              run('env', async () => {
+                const before = api.config.get();
+                push('info', `env: active = ${before.activeEnvironment ?? '(baseURL)'}`);
+                // Switch the active base URL at runtime (also clears the cache).
+                api.setEnvironment('mirror');
+                const after = api.config.get();
+                push(
+                  'info',
+                  `env: switched → ${after.activeEnvironment} (cache cleared); refetching…`,
+                );
+                await api.products.getProductById({ id: 1 });
+                push('info', 'env: request on the new environment succeeded ✓');
+                api.setEnvironment('primary'); // restore for the rest of the demo
+              })
+            }
+          >
+            Environments (switch)
           </Button>
 
           {/* TIMEOUT */}
