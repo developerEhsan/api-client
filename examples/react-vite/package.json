@@ -13,7 +13,7 @@
   "dependencies": {
     "@developerehsan/api-client": "workspace:*",
     "@developerehsan/api-client-query": "workspace:*",
-    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-query": "^5.101.3",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
