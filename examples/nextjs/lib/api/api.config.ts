@@ -1,4 +1,4 @@
-import "server-only";
+import 'server-only';
 /**
  * The single (server-only) API client for the whole app, plus the SSR RPC bridge
  * handler. Backed by https://dummyjson.com.
@@ -18,36 +18,33 @@ import "server-only";
  *   npx @developerehsan/api-client generate \
  *     --input ./lib/api/openapi.json --output ./lib/api/types/generated
  */
-import { createTypedClient } from "@developerehsan/api-client";
-import {
-  createRateLimiter,
-  createRpcHandler,
-} from "@developerehsan/api-client/server";
-import { generatedModules } from "./types/generated/api.modules";
-import type { OperationsMap } from "./types/generated/api.types";
+import { createTypedClient } from '@developerehsan/api-client';
+import { createRateLimiter, createRpcHandler } from '@developerehsan/api-client/server';
+import { generatedModules } from './types/generated/api.modules';
+import type { OperationsMap } from './types/generated/api.types';
 
 export const api = createTypedClient<OperationsMap>()(
   {
     // DummyJSON — the base URL, paths, and OpenAPI doc live ONLY here on the
     // server; the browser (via the RPC bridge) never sees them.
-    baseURL: "https://dummyjson.com",
+    baseURL: 'https://dummyjson.com',
     dev: { logging: true },
-    openapi: { mode: "runtime", validation: { enabled: true, mode: "loose" } },
+    openapi: { mode: 'runtime', validation: { enabled: true, mode: 'loose' } },
     http: {
-      adapter: "fetch",
+      adapter: 'fetch',
       timeout: 12_000,
-      retry: { attempts: 3, backoff: "exponential", baseDelay: 400 },
+      retry: { attempts: 3, backoff: 'exponential', baseDelay: 400 },
       queue: { concurrency: 6 },
     },
     hooks: {
       onCacheHit(key) {
-        console.log("CACHE HIT", key);
+        console.log('CACHE HIT', key);
       },
       onRetry(attempt, error) {
-        console.log("RETRYING", error, { attempt });
+        console.log('RETRYING', error, { attempt });
       },
     },
-    cache: { strategy: "stale-while-revalidate", ttl: 30_000 },
+    cache: { strategy: 'stale-while-revalidate', ttl: 30_000 },
     modules: {
       auto: true,
       products: {
@@ -56,18 +53,18 @@ export const api = createTypedClient<OperationsMap>()(
           getWithSiblings: async (ctx, id: number) => {
             const product = (
               await ctx.request({
-                method: "GET",
-                path: "/products/{id}",
+                method: 'GET',
+                path: '/products/{id}',
                 pathParams: { id },
               })
-            ).data as OperationsMap["getProductById"]["response"];
+            ).data as OperationsMap['getProductById']['response'];
             const siblings = (
               await ctx.request({
-                method: "GET",
-                path: "/products/search",
-                query: { q: product.category ?? "", limit: 5 },
+                method: 'GET',
+                path: '/products/search',
+                query: { q: product.category ?? '', limit: 5 },
               })
-            ).data as OperationsMap["searchProducts"]["response"];
+            ).data as OperationsMap['searchProducts']['response'];
             return { product, siblings: siblings.products };
           },
         },
@@ -88,11 +85,11 @@ export type Api = typeof api;
 const limiter = createRateLimiter({
   windowMs: 10_000,
   max: 30,
-  keyFor: async (ctx) => (await ctx.getCookie?.("demo_session")) ?? "anon",
+  keyFor: async (ctx) => (await ctx.getCookie?.('demo_session')) ?? 'anon',
 });
 
 /** Methods that mutate — gated behind an editor cookie by `authorize`. */
-const WRITE_METHODS = new Set(["addProduct", "updateProduct", "deleteProduct"]);
+const WRITE_METHODS = new Set(['addProduct', 'updateProduct', 'deleteProduct']);
 
 /**
  * SSR RPC bridge — server side. `rpcHandler` is the single trust boundary: it
@@ -111,15 +108,9 @@ const WRITE_METHODS = new Set(["addProduct", "updateProduct", "deleteProduct"]);
  */
 export const rpcHandler = createRpcHandler(api, {
   expose: {
-    products: [
-      "getProductById",
-      "listProducts",
-      "searchProducts",
-      "addProduct",
-      "getWithSiblings",
-    ],
-    auth: ["login", "getCurrentUser"],
-    users: ["getUserById"],
+    products: ['getProductById', 'listProducts', 'searchProducts', 'addProduct', 'getWithSiblings'],
+    auth: ['login', 'getCurrentUser'],
+    users: ['getUserById'],
   },
   maxBatchSize: 10,
 
@@ -127,17 +118,13 @@ export const rpcHandler = createRpcHandler(api, {
 
   authorize: async (ctx, call) => {
     if (!WRITE_METHODS.has(call.method)) return true; // reads: always allowed
-    const editor = await ctx.getCookie?.("demo_editor");
-    return editor === "1"; // deny → same error as "unknown method" (no enumeration)
+    const editor = await ctx.getCookie?.('demo_editor');
+    return editor === '1'; // deny → same error as "unknown method" (no enumeration)
   },
 
   // Least-privilege: strip a product's bulky `images` array before it ships.
   transformResult: (result, call) => {
-    if (
-      call.method === "getProductById" &&
-      result &&
-      typeof result === "object"
-    ) {
+    if (call.method === 'getProductById' && result && typeof result === 'object') {
       const safe = { ...(result as Record<string, unknown>) };
       delete safe.images;
       return safe;
