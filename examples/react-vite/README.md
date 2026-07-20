@@ -5,8 +5,10 @@ CORS-enabled [DummyJSON](https://dummyjson.com) API. It answers the most
 important question: **how do the generated types connect to a working,
 autocompleting client — and what does each pipeline feature actually do?**
 
+> VIEW Live example at [https://api-client-react-vite.vercel.app/](https://api-client-react-vite.vercel.app/)
+
 > 📖 Full feature documentation lives in [`../../docs`](../../docs). This README
-> is the guided tour of *this app*.
+> is the guided tour of _this app_.
 
 ## Run it
 
@@ -27,10 +29,10 @@ request/response so you can watch the pipeline.
 
 Codegen produces **two** files from `openapi.json`:
 
-| File | What it is | Used for |
-| --- | --- | --- |
-| `types/generated/api.types.ts` | `OperationsMap` — a **type** describing every operation's params/query/body/response | compile-time safety |
-| `types/generated/api.modules.ts` | `generatedModules` — a **value** mapping method → `{ method, path, operationId }` | runtime dispatch |
+| File                             | What it is                                                                           | Used for            |
+| -------------------------------- | ------------------------------------------------------------------------------------ | ------------------- |
+| `types/generated/api.types.ts`   | `OperationsMap` — a **type** describing every operation's params/query/body/response | compile-time safety |
+| `types/generated/api.modules.ts` | `generatedModules` — a **value** mapping method → `{ method, path, operationId }`    | runtime dispatch    |
 
 They are joined in [`src/lib/api/api.config.ts`](src/lib/api/api.config.ts):
 
@@ -46,9 +48,9 @@ export const api = createTypedClient<OperationsMap>()(config, generatedModules);
 types them with `OperationsMap`. The result autocompletes fully:
 
 ```ts
-api.products.getProductById({ id: 1 });            // -> Promise<Product>
+api.products.getProductById({ id: 1 }); // -> Promise<Product>
 api.products.listProducts({ limit: 10, skip: 0 }); // -> Promise<ProductList>
-api.auth.login({ body: { username, password } });  // -> Promise<AuthUser>
+api.auth.login({ body: { username, password } }); // -> Promise<AuthUser>
 ```
 
 The config also sets `modules: { auto: true }`, which derives a callable method
@@ -65,7 +67,7 @@ descriptor's path:
 - everything else → query params
 
 ```ts
-api.products.getProductById({ id: 1 });   // id in the path
+api.products.getProductById({ id: 1 }); // id in the path
 api.products.searchProducts({ q: "phone" }); // q in the query string
 api.auth.login({ body: { username, password } }); // body in the request body
 ```
@@ -110,18 +112,18 @@ Interactive buttons, each exercising one pipeline feature, with a live log fed b
 the client's events (`api.on('request' | 'response' | 'error')` — see
 [`components/ui.tsx`](src/components/ui.tsx)):
 
-| Button | Demonstrates | Docs |
-| --- | --- | --- |
-| Caching / SWR | Second identical GET returns from cache (near-0ms) | [caching](../../docs/caching.md) |
-| Deduplication (6→1) | 6 concurrent identical requests → **1** network call | [deduplication](../../docs/deduplication.md) |
-| Retry & backoff (500) | An always-500 endpoint retried 3× then a typed `ApiError` | [retries](../../docs/retries.md) |
-| Environments (switch) | `api.setEnvironment()` swaps the base URL + clears the cache | [environments](../../docs/environments.md) |
-| Timeout (1ms) | A 1ms per-call timeout raises `TimeoutError` | [timeouts](../../docs/timeouts-and-cancellation.md) |
-| Cancellation | `AbortController.abort()` raises `AbortError` | [cancellation](../../docs/timeouts-and-cancellation.md) |
-| Typed error (404) | A bad id returns a typed `ApiError` with `status` | [errors](../../docs/responses-and-errors.md) |
-| safeMode result | A second client returns `{ success, error }` instead of throwing | [safeMode](../../docs/responses-and-errors.md#safemode-no-throw) |
-| Composed call | Two endpoints combined in one method | [modules](../../docs/modules-and-methods.md#composed-calls-calling-multiple-endpoints) |
-| ctx.run (analytics) | Non-HTTP module logic with opt-in dedup + retry | [modules-beyond-http](../../docs/modules-beyond-http.md) |
+| Button                | Demonstrates                                                     | Docs                                                                                   |
+| --------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Caching / SWR         | Second identical GET returns from cache (near-0ms)               | [caching](../../docs/caching.md)                                                       |
+| Deduplication (6→1)   | 6 concurrent identical requests → **1** network call             | [deduplication](../../docs/deduplication.md)                                           |
+| Retry & backoff (500) | An always-500 endpoint retried 3× then a typed `ApiError`        | [retries](../../docs/retries.md)                                                       |
+| Environments (switch) | `api.setEnvironment()` swaps the base URL + clears the cache     | [environments](../../docs/environments.md)                                             |
+| Timeout (1ms)         | A 1ms per-call timeout raises `TimeoutError`                     | [timeouts](../../docs/timeouts-and-cancellation.md)                                    |
+| Cancellation          | `AbortController.abort()` raises `AbortError`                    | [cancellation](../../docs/timeouts-and-cancellation.md)                                |
+| Typed error (404)     | A bad id returns a typed `ApiError` with `status`                | [errors](../../docs/responses-and-errors.md)                                           |
+| safeMode result       | A second client returns `{ success, error }` instead of throwing | [safeMode](../../docs/responses-and-errors.md#safemode-no-throw)                       |
+| Composed call         | Two endpoints combined in one method                             | [modules](../../docs/modules-and-methods.md#composed-calls-calling-multiple-endpoints) |
+| ctx.run (analytics)   | Non-HTTP module logic with opt-in dedup + retry                  | [modules-beyond-http](../../docs/modules-beyond-http.md)                               |
 
 ## Configuration highlights (`api.config.ts`)
 
@@ -141,4 +143,4 @@ the client's events (`api.on('request' | 'response' | 'error')` — see
 - A harmless build warning mentions `node:async_hooks` being externalized: that
   is the server-only tenant-context helper, guarded so it no-ops in browsers.
 - To ship without Axios in the bundle, set `http: { adapter: 'fetch' }`.
-</content>
+  </content>
