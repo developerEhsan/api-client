@@ -13,7 +13,7 @@
   "bugs": {
     "url": "https://github.com/developerEhsan/api-client/issues"
   },
-  "packageManager": "pnpm@10.33.0",
+  "packageManager": "pnpm@11.15.1+sha512.81350b07e53c9538a02f1f2303b4290fa2d7be04e56e2a970c4cc4b417dc761de196edabd49d55c7dc9580db81007c44143e4e3d7e462b3000d23c255122d065",
   "engines": {
     "node": ">=20"
   },
@@ -29,7 +29,10 @@
     "prepublishOnly": "pnpm build"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@biomejs/biome", "esbuild"]
+    "onlyBuiltDependencies": [
+      "@biomejs/biome",
+      "esbuild"
+    ]
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -44,5 +47,7 @@
   "directories": {
     "example": "examples"
   },
-  "keywords": ["api-manager"]
+  "keywords": [
+    "api-manager"
+  ]
 }
