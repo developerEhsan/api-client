@@ -13,6 +13,7 @@
     "@developerehsan/api-client-cli": "^1.0.0",
     "@developerehsan/api-client-query": "^0.2.2",
     "@tanstack/react-query": "^5.101.3",
+    "axios": "^1.18.1",
     "next": "16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7"
