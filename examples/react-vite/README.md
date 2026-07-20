@@ -1,9 +1,12 @@
 # @developerehsan/api-client — React + Vite demo
 
-A runnable demo showing the library end-to-end against the public
-[Swagger Petstore](https://petstore3.swagger.io) API. It answers the most
+A runnable, client-side demo showing the library end-to-end against the free,
+CORS-enabled [DummyJSON](https://dummyjson.com) API. It answers the most
 important question: **how do the generated types connect to a working,
-autocompleting client?**
+autocompleting client — and what does each pipeline feature actually do?**
+
+> 📖 Full feature documentation lives in [`../../docs`](../../docs). This README
+> is the guided tour of *this app*.
 
 ## Run it
 
@@ -43,26 +46,28 @@ export const api = createTypedClient<OperationsMap>()(config, generatedModules);
 types them with `OperationsMap`. The result autocompletes fully:
 
 ```ts
-api.pet.getPetById({ petId: 1 });                  // -> Promise<Pet>
-api.pet.findPetsByStatus({ status: "available" }); // -> Promise<Pet[]>  (status is a typed enum)
-api.store.getInventory();                           // -> Promise<Record<string, number>>
+api.products.getProductById({ id: 1 });            // -> Promise<Product>
+api.products.listProducts({ limit: 10, skip: 0 }); // -> Promise<ProductList>
+api.auth.login({ body: { username, password } });  // -> Promise<AuthUser>
 ```
 
-> **Why not `modules: { auto: true }`?** Auto-derivation of *runtime* methods
-> from schema tags is not wired into `createClient`. `createTypedClient` is the
-> supported bridge — explicit, debuggable, and fully typed.
+The config also sets `modules: { auto: true }`, which derives a callable method
+for **every** tagged operation in the spec at runtime — see
+[docs/schema-validation](../../docs/schema-validation.md#auto-modules-from-the-runtime-schema).
 
 ### Input convention
 
-Each method takes **one** object; the client splits it by the descriptor's path:
+Each generated method takes **one** object; the client splits it by the
+descriptor's path:
 
-- path placeholders (`/pet/{petId}`) ← matching keys → `pathParams`
+- path placeholders (`/products/{id}`) ← matching keys → `pathParams`
 - a `body` key → request body
 - everything else → query params
 
 ```ts
-api.pet.updatePetWithForm({ petId: 1, name: "Rex" }); // petId in path, name in query
-api.store.placeOrder({ body: order });                // body in the request body
+api.products.getProductById({ id: 1 });   // id in the path
+api.products.searchProducts({ q: "phone" }); // q in the query string
+api.auth.login({ body: { username, password } }); // body in the request body
 ```
 
 ## Regenerating types
@@ -76,48 +81,64 @@ npx @developerehsan/api-client generate \
   --output ./src/lib/api/types/generated
 ```
 
+The included `vite.config.ts` also runs codegen automatically via the
+[`@developerehsan/api-client-vite`](../../packages/vite-plugin) plugin — see
+[docs/codegen](../../docs/codegen.md).
+
 ## What the demo shows
 
 Three tabs (see [`src/App.tsx`](src/App.tsx)):
 
-### 1 · Direct client — `features/DirectClientDemo.tsx`
+### 1 · Direct client — [`features/DirectClientDemo.tsx`](src/features/DirectClientDemo.tsx)
+
 Calling `api.*` straight from components: typed query params, typed path params,
-loading/error states, and typed `ApiError` handling. Reloading the same status
-is served instantly from the stale-while-revalidate cache.
+loading/error states, and typed `ApiError` handling. The search box uses the
+300ms debounce-cancel window, so fast typing auto-aborts superseded searches.
+→ [docs/getting-started](../../docs/getting-started.md),
+[docs/timeouts-and-cancellation](../../docs/timeouts-and-cancellation.md).
 
-### 2 · TanStack Query — `features/TanstackDemo.tsx`
-The **same** client via `@tanstack/react-query`. `q.pet.queryOptions.*` and
-`q.pet.mutationOptions.*` (from `lib/api/query.ts`) plug into
-`useQuery`/`useMutation`. Creating a pet invalidates the list and refetches.
+### 2 · TanStack Query — [`features/TanstackDemo.tsx`](src/features/TanstackDemo.tsx)
 
-### 3 · Feature lab — `features/FeatureLab.tsx`
-Interactive buttons, each exercising one pipeline feature, with a live log fed
-by the client's events (`api.on('request' | 'response' | 'error')`):
+The **same** client via `@tanstack/react-query`. `q.products.infiniteQueryOptions.*`
+and `q.products.mutationOptions.*` (from [`lib/api/query.ts`](src/lib/api/query.ts))
+plug into `useInfiniteQuery`/`useMutation`. Creating a product invalidates the
+list and refetches. → [docs/tanstack-query](../../docs/tanstack-query.md).
 
-| Button | Demonstrates |
-| --- | --- |
-| Caching / SWR | Second identical GET returns from cache (near-0ms) |
-| Deduplication | 6 concurrent identical requests → **1** network call |
-| Timeout | A 1ms per-call timeout raises `TimeoutError` |
-| Cancellation | `AbortController.abort()` raises `AbortError` |
-| Typed error | A bad id returns a typed `ApiError` with `status` |
-| safeMode | A second client returns `{ success, error }` instead of throwing |
-| Composed call | Two endpoints combined in one action |
+### 3 · Feature lab — [`features/FeatureLab.tsx`](src/features/FeatureLab.tsx)
+
+Interactive buttons, each exercising one pipeline feature, with a live log fed by
+the client's events (`api.on('request' | 'response' | 'error')` — see
+[`components/ui.tsx`](src/components/ui.tsx)):
+
+| Button | Demonstrates | Docs |
+| --- | --- | --- |
+| Caching / SWR | Second identical GET returns from cache (near-0ms) | [caching](../../docs/caching.md) |
+| Deduplication (6→1) | 6 concurrent identical requests → **1** network call | [deduplication](../../docs/deduplication.md) |
+| Retry & backoff (500) | An always-500 endpoint retried 3× then a typed `ApiError` | [retries](../../docs/retries.md) |
+| Environments (switch) | `api.setEnvironment()` swaps the base URL + clears the cache | [environments](../../docs/environments.md) |
+| Timeout (1ms) | A 1ms per-call timeout raises `TimeoutError` | [timeouts](../../docs/timeouts-and-cancellation.md) |
+| Cancellation | `AbortController.abort()` raises `AbortError` | [cancellation](../../docs/timeouts-and-cancellation.md) |
+| Typed error (404) | A bad id returns a typed `ApiError` with `status` | [errors](../../docs/responses-and-errors.md) |
+| safeMode result | A second client returns `{ success, error }` instead of throwing | [safeMode](../../docs/responses-and-errors.md#safemode-no-throw) |
+| Composed call | Two endpoints combined in one method | [modules](../../docs/modules-and-methods.md#composed-calls-calling-multiple-endpoints) |
+| ctx.run (analytics) | Non-HTTP module logic with opt-in dedup + retry | [modules-beyond-http](../../docs/modules-beyond-http.md) |
 
 ## Configuration highlights (`api.config.ts`)
 
-- `baseURL: https://petstore3.swagger.io/api/v3`
+- `baseURL: https://dummyjson.com` + an `environments` map (`primary` / `mirror`)
+- `auth: { strategy: 'bearer', getToken, onMissingToken: 'skip' }` — `auth.login` persists the token
 - `cache: { strategy: 'stale-while-revalidate', ttl: 30_000 }`
-- `http.retry: { attempts: 3, backoff: 'exponential' }`
+- `http.retry: { attempts: 3, backoff: 'exponential', baseDelay: 400 }`
+- `http.queue: { concurrency: 6 }`
 - `cancellation: { dedupeWindow: 300 }` (debounce-cancel)
-- `openapi: { mode: 'runtime', runtimeURL, validation: { mode: 'loose' } }`
+- `openapi: { mode: 'runtime', validation: { enabled: true, mode: 'loose' } }`
 - `dev: { logging: true, validateResponses: true }`
+- Custom modules: `products.getWithSiblings` (composed), `analytics.summarize`
+  (`ctx.run`), `debug.failing` (retry demo)
 
 ## Notes
 
-- The public Petstore occasionally returns 500 on writes (`addPet`). That is the
-  demo API, not the client — you'll see the client retry, then surface a typed
-  `ApiError`, which the UI displays.
 - A harmless build warning mentions `node:async_hooks` being externalized: that
   is the server-only tenant-context helper, guarded so it no-ops in browsers.
 - To ship without Axios in the bundle, set `http: { adapter: 'fetch' }`.
+</content>

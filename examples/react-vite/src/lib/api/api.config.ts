@@ -36,6 +36,16 @@ export const api = createTypedClient<OperationsMap>()(
     // are appended to this base.
     baseURL: 'https://dummyjson.com',
 
+    // Named base URLs you can switch between at runtime with
+    // `api.setEnvironment(name)` (which also clears the cache). DummyJSON only
+    // has one public host, so both entries point at it — but the runtime switch
+    // and cache-clear are real (see the Feature Lab "Environments" button).
+    environments: {
+      primary: 'https://dummyjson.com',
+      mirror: 'https://dummyjson.com',
+    },
+    activeEnvironment: 'primary',
+
     // Dev logging prints each request/response to the console; response
     // validation checks bodies against the loaded schema (loose = warn only).
     dev: { logging: true, validateResponses: true },
@@ -110,6 +120,17 @@ export const api = createTypedClient<OperationsMap>()(
           },
           // Generated methods you don't override (listProducts, getProductById,
           // addProduct, …) remain available with their spec types.
+        },
+      },
+
+      // A brand-new module (not in the spec) used to demonstrate retries: it
+      // hits DummyJSON's `/http/500` endpoint, which always returns 500. Because
+      // 5xx is retryable, the client retries per `http.retry` (3 attempts,
+      // exponential backoff) and then surfaces a typed `ApiError`. Appears as
+      // `api.debug.failing()` and powers the Feature Lab "Retry & backoff" button.
+      debug: {
+        methods: {
+          failing: async (ctx) => ctx.request({ method: 'GET', path: '/http/500' }),
         },
       },
 
