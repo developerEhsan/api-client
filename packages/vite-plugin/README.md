@@ -48,7 +48,7 @@ When `input` is a URL, the watcher does conditional (ETag/hash-aware) polling so
 
 The same artifacts as the CLI: `api.types.ts` (the `OperationsMap` type), `api.modules.ts` (the `generatedModules` descriptor), `api.rpc.ts` (paths-stripped descriptor for the SSR bridge), `api.schema.hash`, and `api.schema.meta.json`.
 
-See the [main package README](https://github.com/developerEhsan/api-client#readme) for wiring the generated output into a client, and the `examples/react-vite` app for a working setup.
+See the [main package README](https://github.com/developerEhsan/api-client#readme) for wiring the generated output into a client, the [codegen docs page](https://github.com/developerEhsan/api-client/blob/master/docs/codegen.md), and the `examples/react-vite` app for a working setup.
 
 ## License
 

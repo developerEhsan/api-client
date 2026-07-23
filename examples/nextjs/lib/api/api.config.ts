@@ -31,6 +31,7 @@ export const api = createTypedClient<OperationsMap>()(
     dev: { logging: true },
     openapi: { mode: 'runtime', validation: { enabled: true, mode: 'loose' } },
     http: {
+      adapter: 'fetch',
       timeout: 12_000,
       retry: { attempts: 3, backoff: 'exponential', baseDelay: 400 },
       queue: { concurrency: 6 },
