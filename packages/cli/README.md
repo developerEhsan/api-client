@@ -83,6 +83,8 @@ integration.
 
 📖 Full codegen documentation and the runtime library guide live in the
 **[project README on GitHub](https://github.com/developerEhsan/api-client#readme)**.
+See also the dedicated
+**[codegen docs page](https://github.com/developerEhsan/api-client/blob/master/docs/codegen.md)**.
 
 ## License
 
