@@ -107,6 +107,9 @@ leaking backend paths — see the `examples/nextjs` app.
 📖 Full React / Vue / Solid guides, SSR prefetch + hydration, and the runtime
 library reference live in the
 **[project README on GitHub](https://github.com/developerEhsan/api-client#readme)**.
+See also the dedicated
+**[TanStack Query docs page](https://github.com/developerEhsan/api-client/blob/master/docs/tanstack-query.md)**
+and the runnable **[`examples/`](https://github.com/developerEhsan/api-client/tree/master/examples)**.
 
 ## License
 

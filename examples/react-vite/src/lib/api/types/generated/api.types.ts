@@ -3,7 +3,7 @@
  *
  * Regenerate via the @developerehsan/api-client codegen; manual edits are lost.
  * source: DummyJSON API v1.0.0 (OpenAPI 3.0.3)
- * generatedAt: 2026-07-17T19:31:57.772Z
+ * generatedAt: 2026-07-20T18:38:12.886Z
  * sourceHash: 53090010
  *
  * Emission scheme:
