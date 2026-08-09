@@ -11,6 +11,7 @@
  */
 
 import { type RpcCall, type RpcResponse, isRpcBatchRequest } from '../rpc/protocol';
+import { assertServerOnly } from '../utilities/serverOnly';
 import {
   RpcSecurityError,
   assertPrimitivePathParams,
@@ -136,6 +137,16 @@ export interface RpcHandlerOptions<Api> {
    * @default 10
    */
   maxBatchSize?: number;
+  /**
+   * Throws immediately if this handler is constructed in a browser context
+   * (spec 06) — this is the real trust boundary (see SECURITY.md), so
+   * leaving this on unless you have a specific, documented reason not to
+   * (e.g. a jsdom-based unit test importing server code) is strongly
+   * recommended. Defaults to enforced, unlike most config in this library —
+   * there is no legitimate reason to construct an RPC handler in a browser.
+   * @default true
+   */
+  enforceServerOnly?: boolean;
 }
 
 /** The dispatcher returned by {@link createRpcHandler}. */
@@ -224,6 +235,8 @@ export function createRpcHandler<Api extends object>(
   const maxTimeout = options.maxTimeout ?? 30_000;
   const maxBatchSize = options.maxBatchSize ?? 10;
   const dev = options.dev ?? defaultDev();
+
+  if (options.enforceServerOnly ?? true) assertServerOnly('createRpcHandler');
 
   /** Sanitize + log one error into a failure envelope (shared by single/batch). */
   const fail = (error: unknown, call: RpcCall<Api> | null): RpcResponse => {

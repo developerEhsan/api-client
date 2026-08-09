@@ -642,7 +642,32 @@ export interface PerCallConfig {
    * the cached entry.
    * @default optional, unset means inherit global/module cache
    */
-  cache?: { enabled?: boolean; ttl?: number; bust?: boolean };
+  cache?: {
+    enabled?: boolean;
+    ttl?: number;
+    bust?: boolean;
+    /**
+     * Tags this specific call's cache entry is filed under, in addition to
+     * any tags the method descriptor declares (union, not override). Tags
+     * are exact-match labels used only for invalidation, never for gating
+     * read access — see `invalidateTags`.
+     * @default optional, unset means only descriptor-level tags (if any) apply
+     */
+    tags?: string[];
+    /**
+     * Tags to invalidate, across every auth scope in this process, after
+     * this specific call succeeds. Unions with descriptor-level
+     * `invalidatesTags`.
+     * @default optional, unset means only descriptor-level invalidation (if any) applies
+     */
+    invalidatesTags?: string[];
+    /**
+     * Extra cache-key dimensions for this specific call, unioned with any
+     * the method descriptor computes (spec 10). See `CacheConfig.cacheKeyParts`.
+     * @default optional, unset means only descriptor-level parts (if any) apply
+     */
+    cacheKeyParts?: Record<string, string>;
+  };
   /**
    * Retry override for this call (attempt count only).
    * @default optional, unset means inherit global/module retry
@@ -694,7 +719,7 @@ export interface ResolvedRequestConfig {
   headers: Record<string, string>;
   auth: AuthConfig;
   cache: Required<Pick<CacheConfig, 'enabled' | 'ttl' | 'strategy' | 'maxSize'>> &
-    CacheConfig & { bust?: boolean };
+    CacheConfig & { bust?: boolean; tags?: string[]; invalidatesTags?: string[] };
   retry: Required<Pick<RetryConfig, 'attempts' | 'backoff' | 'baseDelay' | 'maxDelay' | 'jitter'>> &
     RetryConfig;
   tenancy: TenancyConfig;

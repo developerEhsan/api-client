@@ -17,6 +17,7 @@ import type { PerCallConfig } from '../types/config.types';
 import type { ApiResponse, HttpMethod } from '../types/http.types';
 import type { ModuleContext, ModuleMethods, ModuleRequestSpec } from '../types/module.types';
 import { isAbortError } from '../utilities/cancellation';
+import { assertServerOnly } from '../utilities/serverOnly';
 
 /** Executes a fully-specified request through the client pipeline. */
 export type RequestRunner = <T = unknown>(
@@ -30,6 +31,25 @@ export interface AutoMethodDescriptor {
   method: HttpMethod;
   /** Path template, e.g. `/invoices/{id}`. */
   path: string;
+  /**
+   * Tags this response is cached under, computed from the resolved call
+   * input (spec 01). Tags are exact-match labels used only for
+   * invalidation, never for gating read access to cached data.
+   */
+  cacheTags?: (args: AutoCallInput | undefined) => string[];
+  /**
+   * On success, tags to invalidate across the WHOLE process (every auth
+   * scope), computed from the call input and the response body.
+   */
+  invalidatesTags?: (args: AutoCallInput | undefined, result: unknown) => string[];
+  /**
+   * Extra cache-key dimensions computed from the resolved call input (spec
+   * 10) — e.g. an admin "viewing as" a target user, or the active workspace
+   * in a multi-tenant dashboard. Folded into the cache key ALONGSIDE the
+   * built-in tenant/auth-fingerprint scoping, never replacing it. A throw
+   * here fails closed: caching is disabled for that one call.
+   */
+  cacheKeyParts?: (args: AutoCallInput | undefined) => Record<string, string>;
 }
 
 /** Argument accepted by an auto-derived exposed method. */
@@ -62,6 +82,8 @@ export interface ModuleProxyInput {
   methods?: ModuleMethods;
   context?: ModuleContext;
   safeMode: boolean;
+  /** See {@link import('../types/module.types').ModuleDefinition.serverOnly}. */
+  serverOnly?: boolean;
 }
 
 /**
@@ -81,6 +103,24 @@ const RESERVED_METHOD_NAMES: ReadonlySet<string> = new Set([
 /** True when `name` may not be used as a module method name. */
 export function isReservedMethodName(name: string): boolean {
   return RESERVED_METHOD_NAMES.has(name);
+}
+
+/**
+ * Resolve `descriptor.cacheKeyParts(args)` into the spec fields `run` reads.
+ * A throw fails closed (spec 10) — `cacheKeyPartsFailed: true` tells
+ * `createClient.ts` to disable caching for this call rather than silently
+ * dropping the extra scoping.
+ */
+function resolveCacheKeyParts(
+  descriptor: AutoMethodDescriptor,
+  input_: AutoCallInput | undefined,
+): Pick<ModuleRequestSpec, 'cacheKeyParts' | 'cacheKeyPartsFailed'> {
+  if (!descriptor.cacheKeyParts) return {};
+  try {
+    return { cacheKeyParts: descriptor.cacheKeyParts(input_) };
+  } catch {
+    return { cacheKeyPartsFailed: true };
+  }
 }
 
 function toApiError(cause: unknown): ApiError {
@@ -120,7 +160,15 @@ export function createModuleProxy(
     methods,
     context,
     safeMode,
+    serverOnly,
   } = input;
+
+  // Checked once per module, at construction — not per call, for
+  // performance (spec 06). Never reachable from a correctly-built browser
+  // bundle in the first place; this is the dev-time net that catches an
+  // accidental client-side import before CI's bundle grep would.
+  if (serverOnly) assertServerOnly(`Module "${moduleName}"`);
+
   const target: Record<string, unknown> = {};
 
   const finalize = <T>(promise: Promise<T>): Promise<T> | Promise<SafeResult<T>> =>
@@ -146,6 +194,14 @@ export function createModuleProxy(
             pathParams: input_?.pathParams,
             query: input_?.query,
             body: input_?.body,
+            ...(descriptor.cacheTags ? { cacheTags: descriptor.cacheTags(input_) } : {}),
+            ...(descriptor.invalidatesTags
+              ? {
+                  resolveInvalidatesTags: (result: unknown) =>
+                    descriptor.invalidatesTags!(input_, result),
+                }
+              : {}),
+            ...resolveCacheKeyParts(descriptor, input_),
           };
           return (await run(spec, { moduleName, methodName }, perCall)).data;
         })(),
@@ -166,6 +222,14 @@ export function createModuleProxy(
           pathParams: input_?.pathParams,
           query: input_?.query,
           body: input_?.body,
+          ...(descriptor.cacheTags ? { cacheTags: descriptor.cacheTags(input_) } : {}),
+          ...(descriptor.invalidatesTags
+            ? {
+                resolveInvalidatesTags: (result: unknown) =>
+                  descriptor.invalidatesTags!(input_, result),
+              }
+            : {}),
+          ...resolveCacheKeyParts(descriptor, input_),
         };
         return finalize(run(spec, { moduleName, methodName }, perCall).then((r) => r.data));
       };
