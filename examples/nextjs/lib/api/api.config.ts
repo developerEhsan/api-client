@@ -40,6 +40,9 @@ export const api = createTypedClient<OperationsMap>()(
       onCacheHit(key) {
         console.log('CACHE HIT', key);
       },
+      onCacheMiss(key) {
+        console.log("CACHE_MISS", key)
+      },
       onRetry(attempt, error) {
         console.log('RETRYING', error, { attempt });
       },

@@ -34,6 +34,8 @@ import type {
 import type { SchemaAST } from '../types/openapi.types';
 
 import { type AuthManager, createAuthManager } from '../auth/authManager';
+import { resolveTokenSource, validateOAuth2Config } from '../auth/strategies/oauth2';
+import type { OutgoingInvalidationMessage } from '../cache-stores/store.types';
 import { createLayeredCacheStore } from '../cache-stores/layered';
 import { validateResponseBody } from '../codegen/schemaValidator';
 import { detectEnvironment } from '../environment/detect';
@@ -56,10 +58,18 @@ import { deriveAutoDescriptors } from '../runtime/deriveDescriptors';
 import { createSchemaCache } from '../runtime/schemaCache';
 import { createSchemaLoader } from '../runtime/schemaLoader';
 import { resolveTenantId } from '../tenancy/tenantManager';
-import { computeCacheKey, createCache, isFresh } from '../utilities/cache';
+import {
+  type CacheStore,
+  computeCacheKey,
+  createCache,
+  foldExtraKeyParts,
+  isFresh,
+  sanitizeKeyParts,
+} from '../utilities/cache';
 import { createCancellationManager, isAbortError } from '../utilities/cancellation';
 import { computeDedupeKey, createDeduplicator } from '../utilities/deduplicator';
 import { createQueue } from '../utilities/queue';
+import { type TagIndex, createTagIndex } from '../utilities/tagIndex';
 import { type ResolvedRetryOptions, computeBackoff, withRetry } from '../utilities/retry';
 import { buildUrl, serializeQuery } from '../utilities/urlBuilder';
 import { isModuleDefinition } from './createModule';
@@ -74,8 +84,14 @@ import { resolveRequestConfig } from './mergeModuleConfig';
 export interface ClientCache {
   /** Invalidate entries matching a glob pattern (e.g. `invoices.*`); no arg clears all. */
   invalidate(pattern?: string): void;
+  /** Invalidate every entry filed under any of `tags`, across every auth scope. Returns count removed. */
+  invalidateTags(tags: string[]): number;
+  /** Dry run (spec 08.8): keys `invalidate(pattern)` would remove, without removing them. */
+  preview(pattern: string): string[];
   clear(): void;
   get(key: string): CacheEntry | undefined;
+  /** Aggregate hit/miss counters since client construction (spec 08.3). `hitRate` is 0 at 0 requests. */
+  getStats(): { hits: number; misses: number; size: number; hitRate: number };
 }
 
 /** Live configuration accessor exposed on `client.config`. */
@@ -146,6 +162,39 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return proto === Object.prototype || proto === null;
 }
 
+/** Cap on the shadow L1 used by `cache.mode: 'l2-only'` (spec 03). */
+const SHADOW_L1_MAX_SIZE = 20;
+
+/** Case-insensitive header lookup (spec 08.2: response headers may be cased either way). */
+function getHeader(headers: Record<string, string>, name: string): string | undefined {
+  const lower = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === lower) return value;
+  }
+  return undefined;
+}
+
+/**
+ * Wrap a {@link CacheStore} so every delete/evict keeps the tag index in sync
+ * (spec `01`: no stale index entries pointing at a key the store no longer
+ * has). Kept as a decorator rather than a `createCache()` change so
+ * `utilities/cache.ts` stays dependency-free.
+ */
+function withTagTracking(store: CacheStore, tagIndex: TagIndex): CacheStore {
+  return {
+    ...store,
+    delete(key: string): boolean {
+      const removed = store.delete(key);
+      tagIndex.untrack(key);
+      return removed;
+    },
+    clear(): void {
+      store.clear();
+      tagIndex.clear();
+    },
+  };
+}
+
 function isAdapterLike(value: unknown): value is HttpAdapterLike {
   return (
     typeof value === 'object' &&
@@ -205,8 +254,8 @@ function validateConfig(config: GlobalConfig): void {
     );
   }
 
-  if (config.auth?.strategy === 'oauth2' && !config.auth.refreshEndpoint) {
-    throw new ConfigurationError('auth strategy "oauth2" requires a "refreshEndpoint".');
+  if (config.auth?.strategy === 'oauth2') {
+    validateOAuth2Config(config.auth);
   }
 }
 
@@ -327,15 +376,82 @@ export function createClient(config: GlobalConfig): ApiClient {
   // --- Client-level utility singletons -------------------------------------
   // Shared across all requests so dedup/queue/cache coordinate globally.
   const deduplicator = createDeduplicator();
+  // Per-process, in-memory tag -> key index (spec 01): lets a mutation clear
+  // every scoped copy of a resource in one pass, regardless of which
+  // auth/tenant scope cached each copy.
+  const tagIndex = createTagIndex();
+  // Aggregate hit/miss counters (spec 08.3), incremented by the same
+  // `emitCacheHit`/`emitCacheMiss` closures that already fire the
+  // `onCacheHit`/`onCacheMiss` hooks — pure aggregation, no new hook.
+  let cacheHitCount = 0;
+  let cacheMissCount = 0;
+  // Storage topology (spec 03): 'l2-only' keeps a tiny bounded shadow L1 —
+  // just enough to avoid a network round-trip on an immediately-repeated
+  // read — instead of the user's configured (possibly large) maxSize.
+  const cacheMode = currentConfig.cache?.mode ?? 'layered';
+  if (cacheMode === 'l2-only' && !currentConfig.cache?.persistentStore) {
+    throw new ConfigurationError("cache.mode 'l2-only' requires cache.persistentStore to be set.");
+  }
   const l1Cache = createCache({
-    maxSize: currentConfig.cache?.maxSize ?? 500,
-    ...(currentConfig.cache?.onEvict ? { onEvict: currentConfig.cache.onEvict } : {}),
+    maxSize:
+      cacheMode === 'l2-only'
+        ? Math.min(SHADOW_L1_MAX_SIZE, currentConfig.cache?.maxSize ?? SHADOW_L1_MAX_SIZE)
+        : currentConfig.cache?.maxSize ?? 500,
+    ...(currentConfig.cache?.maxSizeBytes !== undefined
+      ? { maxSizeBytes: currentConfig.cache.maxSizeBytes }
+      : {}),
+    onEvict: (key, entry) => {
+      tagIndex.untrack(key);
+      currentConfig.cache?.onEvict?.(key, entry);
+    },
   });
   // Optional persistent L2 (E4): layered behind L1 with write-through + async
-  // read-warming, keeping the hot path synchronous.
-  const cacheStore = currentConfig.cache?.persistentStore
-    ? createLayeredCacheStore(l1Cache, currentConfig.cache.persistentStore)
-    : l1Cache;
+  // read-warming, keeping the hot path synchronous. 'l1-only' ignores a
+  // configured persistentStore entirely (spec 03).
+  const cacheStore = withTagTracking(
+    currentConfig.cache?.persistentStore && cacheMode !== 'l1-only'
+      ? createLayeredCacheStore(l1Cache, currentConfig.cache.persistentStore, {
+          ...(currentConfig.cache.circuitBreaker
+            ? { circuitBreaker: currentConfig.cache.circuitBreaker }
+            : {}),
+          ...(currentConfig.cache.onStoreError
+            ? { onStoreError: currentConfig.cache.onStoreError }
+            : {}),
+        })
+      : l1Cache,
+    tagIndex,
+  );
+  // Node-only, opt-in proactive eviction ahead of maxSize/maxSizeBytes (spec
+  // 03). Feature-detected the same way `createIndexedDbStore` detects
+  // `indexedDB` — a no-op wherever `process.memoryUsage` doesn't exist
+  // (edge/browser), safe to set anywhere.
+  const memoryPressureConfig = currentConfig.cache?.memoryPressure;
+  const hasProcessMemory =
+    typeof process !== 'undefined' && typeof process.memoryUsage === 'function';
+  if (memoryPressureConfig && hasProcessMemory) {
+    const interval = setInterval(() => {
+      const rssMb = process.memoryUsage().rss / (1024 * 1024);
+      if (rssMb > memoryPressureConfig.thresholdMb) {
+        l1Cache.evictOldest(Math.max(1, Math.ceil(l1Cache.size() * 0.1)));
+      }
+    }, memoryPressureConfig.checkIntervalMs ?? 30_000);
+    interval.unref?.();
+  }
+  // Cross-instance invalidation (spec 02): subscribed once, at construction,
+  // to whatever persistent store was configured at that time. Applies
+  // remote invalidations to THIS process's local L1 cache + tag index only —
+  // never re-broadcasts (no echo loop) and never throws into the pipeline.
+  currentConfig.cache?.persistentStore?.onRemoteInvalidate?.((msg) => {
+    if (msg.type === 'clear') cacheStore.clear();
+    else if (msg.type === 'keys') for (const key of msg.values ?? []) cacheStore.delete(key);
+    else if (msg.type === 'tags') {
+      for (const key of tagIndex.keysFor(msg.values ?? [])) cacheStore.delete(key);
+    }
+  });
+  /** Fire-and-forget broadcast to sibling instances; a publish failure never surfaces. */
+  const broadcastInvalidate = (msg: OutgoingInvalidationMessage): void => {
+    void currentConfig.cache?.persistentStore?.publishInvalidate?.(msg).catch(() => undefined);
+  };
   const queue = createQueue({
     concurrency: currentConfig.http?.queue?.concurrency ?? 10,
     priority: currentConfig.http?.queue?.priority ?? 'fifo',
@@ -400,7 +516,7 @@ export function createClient(config: GlobalConfig): ApiClient {
         case 'bearer':
           return `bearer:${(await auth.getToken()) ?? ''}`;
         case 'oauth2':
-          return `oauth2:${(await auth.getAccessToken()) ?? ''}`;
+          return `oauth2:${(await resolveTokenSource(auth).getAccessToken()) ?? ''}`;
         case 'apiKey':
           return `apikey:${await auth.getKey()}`;
         case 'cookie':
@@ -439,6 +555,10 @@ export function createClient(config: GlobalConfig): ApiClient {
     // post-refresh retry.
     const baseHeaders: Record<string, string> = { ...resolved.headers };
     const baseQuery: Record<string, unknown> = { ...spec.query };
+    // Set by `fetchThrough` just before a revalidation fetch when a prior
+    // cache entry carries an `ETag` (spec 08.2) — merged into every attempt
+    // (incl. a post-401-refresh retry) for this one `run()` call.
+    let conditionalHeaders: Record<string, string> | undefined;
 
     // Tenancy: resolve per precedence (per-call > resolver > ALS context),
     // then inject the header when a tenant id was resolved (spec T1-T5).
@@ -486,6 +606,7 @@ export function createClient(config: GlobalConfig): ApiClient {
       const headers: Record<string, string> = {
         ...baseHeaders,
         ...auth.headers,
+        ...conditionalHeaders,
       };
       const query: Record<string, unknown> = { ...baseQuery, ...auth.query };
 
@@ -633,7 +754,17 @@ export function createClient(config: GlobalConfig): ApiClient {
         if (refreshed) ({ request, raw } = await dispatchWithRetry());
       }
 
-      if (raw.status >= 400) {
+      // Negative caching (spec 08.1): a GET whose error status is explicitly
+      // listed in `cacheableStatuses` is NOT thrown here — it flows through
+      // as a normal response envelope so `fetchThrough` can write it to
+      // cache (with `negativeTtl`) before re-throwing, so a repeat lookup
+      // within the TTL skips the network without changing the "this call
+      // still rejects" contract.
+      const isNegativeCacheable =
+        method === 'GET' &&
+        cacheConfigured &&
+        (resolved.cache.cacheableStatuses ?? []).includes(raw.status);
+      if (raw.status >= 400 && !isNegativeCacheable) {
         throw classifyError({
           kind: 'http',
           status: raw.status,
@@ -708,16 +839,20 @@ export function createClient(config: GlobalConfig): ApiClient {
     };
 
     // --- Cache layer (GET only) ---------------------------------------------
-    const cacheEligible = cacheConfigured && scopable;
+    // spec 10: fail closed if the descriptor's cacheKeyParts(args) threw —
+    // never silently fall back to a key that omits the extra scoping.
+    const cacheEligible = cacheConfigured && scopable && !spec.cacheKeyPartsFailed;
     const cacheTtl = resolved.cache.ttl ?? 60_000;
     const cacheStrategy = resolved.cache.strategy ?? 'cache-first';
     const cacheBust = resolved.cache.bust === true;
 
     const emitCacheHit = (key: string, entry: CacheEntry): void => {
+      cacheHitCount += 1;
       resolved.hooks.onCacheHit(key, entry);
       emit('cacheHit', { key, entry });
     };
     const emitCacheMiss = (key: string): void => {
+      cacheMissCount += 1;
       resolved.hooks.onCacheMiss(key);
       emit('cacheMiss', { key });
     };
@@ -728,24 +863,82 @@ export function createClient(config: GlobalConfig): ApiClient {
       headers: entry.headers,
       fromCache: true,
     });
+    const cacheableStatuses = resolved.cache.cacheableStatuses ?? [];
+    const negativeTtl = resolved.cache.negativeTtl ?? cacheTtl;
+    /** A negative-cacheable entry rethrows on a cache hit (spec 08.1) — it never resolves as success. */
+    const throwFromEntry = (entry: CacheEntry): never => {
+      throw classifyError({
+        kind: 'http',
+        status: entry.status,
+        statusText: '',
+        headers: entry.headers,
+        data: entry.data,
+      });
+    };
 
     let cacheKey: string | undefined;
     if (cacheEligible) {
-      cacheKey = computeCacheKey({
-        method,
-        url: identityUrl,
-        ...(tenantId !== undefined ? { tenantId } : {}),
-        ...(fp !== null ? { authFingerprint: fp } : {}),
-      });
+      // spec 10: descriptor-level (dynamic, per-args) parts union with
+      // static module/global/per-call `cache.cacheKeyParts` — both add
+      // dimensions on top of tenant/auth scoping, never replace it.
+      const mergedKeyParts = { ...(spec.cacheKeyParts ?? {}), ...(resolved.cache.cacheKeyParts ?? {}) };
+      const extraParts = Object.keys(mergedKeyParts).length > 0 ? sanitizeKeyParts(mergedKeyParts) : undefined;
+      if (resolved.cache.keyResolver) {
+        const keyResolverRequest: ApiRequest = {
+          method: method as ApiRequest['method'],
+          url: identityUrl,
+          headers: {},
+          ...(spec.body !== undefined ? { body: spec.body } : {}),
+          ...(spec.query !== undefined ? { query: spec.query } : {}),
+          ...(spec.pathParams !== undefined ? { pathParams: spec.pathParams } : {}),
+          ...(tenantId !== undefined ? { tenantId } : {}),
+        };
+        const base = resolved.cache.keyResolver(keyResolverRequest);
+        cacheKey = foldExtraKeyParts(base, extraParts);
+      } else {
+        cacheKey = computeCacheKey({
+          method,
+          url: identityUrl,
+          ...(tenantId !== undefined ? { tenantId } : {}),
+          ...(fp !== null ? { authFingerprint: fp } : {}),
+          ...(extraParts ? { extraParts } : {}),
+        });
+      }
     }
     if (cacheKey && cacheBust) cacheStore.delete(cacheKey);
+
+    // Tags this entry is filed under (spec 01): descriptor-level ∪ per-call,
+    // union not override. Tags are exact-match labels used only to drive
+    // invalidation, never to gate read access, so no sanitization is needed.
+    const resolvedCacheTags = [...(spec.cacheTags ?? []), ...(resolved.cache.tags ?? [])];
 
     // Fetch through queue + dedup, then write-through to cache on success.
     const fetchThrough = (): Promise<ApiResponse<T>> =>
       withQueue(() =>
         withDedup(async () => {
+          // Conditional revalidation (spec 08.2): a prior entry's captured
+          // `ETag` is sent as `If-None-Match`; a `304` means the body is
+          // unchanged, so the previous `data` is reused instead of
+          // re-parsing a (would-be-identical) full payload.
+          const priorEntry = cacheKey ? cacheStore.get(cacheKey) : undefined;
+          const priorEtag = priorEntry ? getHeader(priorEntry.headers, 'etag') : undefined;
+          conditionalHeaders = priorEtag ? { 'If-None-Match': priorEtag } : undefined;
+
           const response = await runNetwork();
-          if (cacheKey) {
+
+          if (response.status === 304 && priorEntry) {
+            const now = Date.now();
+            const refreshed: CacheEntry = {
+              ...priorEntry,
+              storedAt: now,
+              expiresAt: now + cacheTtl,
+            };
+            if (cacheKey) cacheStore.set(cacheKey, refreshed);
+            return toCacheResponse(refreshed);
+          }
+
+          const isNegative = response.status >= 400;
+          if (cacheKey && (!isNegative || cacheableStatuses.includes(response.status))) {
             const now = Date.now();
             cacheStore.set(cacheKey, {
               key: cacheKey,
@@ -753,7 +946,22 @@ export function createClient(config: GlobalConfig): ApiClient {
               status: response.status,
               headers: response.headers,
               storedAt: now,
-              expiresAt: now + cacheTtl,
+              expiresAt: now + (isNegative ? negativeTtl : cacheTtl),
+              ...(resolvedCacheTags.length > 0 ? { tags: resolvedCacheTags } : {}),
+              ...(schemaCache.hash() !== undefined ? { schemaHash: schemaCache.hash() } : {}),
+            });
+            if (resolvedCacheTags.length > 0) tagIndex.track(cacheKey, resolvedCacheTags);
+          }
+          // A negative-cacheable status was allowed through runNetwork
+          // without throwing so it could be cached above — now enforce the
+          // normal "this call rejects on an error status" contract.
+          if (isNegative) {
+            throw classifyError({
+              kind: 'http',
+              status: response.status,
+              statusText: response.statusText ?? '',
+              headers: response.headers,
+              data: response.data,
             });
           }
           return response;
@@ -765,7 +973,17 @@ export function createClient(config: GlobalConfig): ApiClient {
     // the several return paths (cache-hit, SWR stale, network) produced it.
     const produce = async (): Promise<ApiResponse<T>> => {
       if (cacheKey && !cacheBust) {
-        const entry = cacheStore.get(cacheKey);
+        let entry = cacheStore.get(cacheKey);
+        // Schema-version cache busting (spec 08.7): a deploy that changes
+        // response shapes must not serve an old-shaped entry to a client
+        // now running the new schema. Evict and treat as a miss.
+        if (entry?.schemaHash !== undefined) {
+          const currentSchemaHash = schemaCache.hash();
+          if (currentSchemaHash !== undefined && currentSchemaHash !== entry.schemaHash) {
+            cacheStore.delete(cacheKey);
+            entry = undefined;
+          }
+        }
 
         if (cacheStrategy === 'network-first') {
           try {
@@ -776,6 +994,7 @@ export function createClient(config: GlobalConfig): ApiClient {
             if (isAbortError(caught)) throw caught;
             if (entry) {
               emitCacheHit(cacheKey, entry);
+              if (entry.status >= 400) throwFromEntry(entry);
               return toCacheResponse(entry);
             }
             throw caught;
@@ -786,6 +1005,7 @@ export function createClient(config: GlobalConfig): ApiClient {
         if (entry) {
           if (isFresh(entry, Date.now())) {
             emitCacheHit(cacheKey, entry);
+            if (entry.status >= 400) throwFromEntry(entry);
             return toCacheResponse(entry);
           }
           if (cacheStrategy === 'stale-while-revalidate') {
@@ -808,6 +1028,20 @@ export function createClient(config: GlobalConfig): ApiClient {
     try {
       const response = await produce();
       settledResponse = response;
+      // Mutation-triggered tag invalidation (spec 01): runs regardless of
+      // which auth scope's key each cached copy was stored under — this is
+      // the fix for "same VM, two users, one stale" (the tag index is not
+      // scoped by tenant/authFingerprint).
+      if (!isGet) {
+        const invalidates = [
+          ...(spec.resolveInvalidatesTags?.(response.data) ?? []),
+          ...(resolved.cache.invalidatesTags ?? []),
+        ];
+        if (invalidates.length > 0) {
+          for (const key of tagIndex.keysFor(invalidates)) cacheStore.delete(key);
+          broadcastInvalidate({ type: 'tags', values: invalidates });
+        }
+      }
       await resolved.hooks.onSuccess(response);
       emit('success', response);
       return response;
@@ -1183,6 +1417,7 @@ export function createClient(config: GlobalConfig): ApiClient {
         methods: definition.methods,
         context,
         safeMode: currentConfig.safeMode ?? false,
+        serverOnly: definition.serverOnly,
       },
       run,
     );
@@ -1194,11 +1429,38 @@ export function createClient(config: GlobalConfig): ApiClient {
   // --- Utility members -----------------------------------------------------
   const cache: ClientCache = {
     invalidate: (pattern?: string) => {
-      if (pattern === undefined) cacheStore.clear();
+      // No broadcast for a glob pattern (spec 02 message types are
+      // tags/keys/clear only, deliberately — see docs/cache-persistence.md);
+      // an undefined pattern clears everything, which DOES broadcast.
+      if (pattern === undefined) cache.clear();
       else cacheStore.invalidate(pattern);
     },
-    clear: () => cacheStore.clear(),
+    invalidateTags: (tags: string[]): number => {
+      let removed = 0;
+      for (const key of tagIndex.keysFor(tags)) {
+        if (cacheStore.delete(key)) removed += 1;
+      }
+      // Broadcast whenever tags were requested, even if this instance had
+      // nothing to remove locally — a sibling instance may have entries
+      // under the same tags.
+      if (tags.length > 0) broadcastInvalidate({ type: 'tags', values: tags });
+      return removed;
+    },
+    preview: (pattern: string) => cacheStore.keysMatching(pattern),
+    clear: () => {
+      cacheStore.clear();
+      broadcastInvalidate({ type: 'clear' });
+    },
     get: (key: string) => cacheStore.get(key),
+    getStats: () => {
+      const total = cacheHitCount + cacheMissCount;
+      return {
+        hits: cacheHitCount,
+        misses: cacheMissCount,
+        size: l1Cache.size(),
+        hitRate: total === 0 ? 0 : cacheHitCount / total,
+      };
+    },
   };
 
   const configApi: ClientConfigApi = {
