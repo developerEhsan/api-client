@@ -7,7 +7,10 @@ import { describe, expect, it } from 'vitest';
 import { createMockClient } from '../testing/createMockClient';
 import type { ModuleContext } from '../types/module.types';
 
-function makeThingsClient(cache: { strategy?: 'cache-first' | 'network-first' | 'stale-while-revalidate'; ttl?: number }) {
+function makeThingsClient(cache: {
+  strategy?: 'cache-first' | 'network-first' | 'stale-while-revalidate';
+  ttl?: number;
+}) {
   const { api, mock } = createMockClient({
     cache,
     modules: {

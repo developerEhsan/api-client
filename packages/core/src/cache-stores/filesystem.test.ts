@@ -77,7 +77,10 @@ describe('createFileSystemStore', () => {
     const files = readdirSync(dir);
     const realFile = files.find((f) => f.endsWith('.json'));
     expect(realFile).toBeDefined();
-    writeFileSync(join(dir, `${realFile}.stray.tmp`), JSON.stringify(entry('a', { value: 'corrupt-in-flight' })));
+    writeFileSync(
+      join(dir, `${realFile}.stray.tmp`),
+      JSON.stringify(entry('a', { value: 'corrupt-in-flight' })),
+    );
 
     const got = await store.get('a');
     expect(got?.data).toEqual({ value: 'real' });
@@ -111,7 +114,9 @@ describe('createFileSystemStore', () => {
     expect(await store.get('a')).toBeUndefined();
     expect(await store.get('c')).toEqual(eC);
 
-    const unbounded = createFileSystemStore({ dir: mkdtempSync(join(tmpdir(), 'api-client-fs-cache-unbounded-')) });
+    const unbounded = createFileSystemStore({
+      dir: mkdtempSync(join(tmpdir(), 'api-client-fs-cache-unbounded-')),
+    });
     const eA2 = entry('a', bigValue);
     await unbounded.set('a', eA2);
     await unbounded.set('b', entry('b', bigValue));

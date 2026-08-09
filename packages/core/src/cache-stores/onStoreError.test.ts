@@ -9,7 +9,14 @@ import { createFakeIndexedDb } from './fakeIndexedDb.test-helper';
 import { type RedisLikeClient, createIndexedDbStore, createRedisStore } from './index';
 
 function entry(key: string): CacheEntry {
-  return { key, data: { key }, status: 200, headers: {}, storedAt: Date.now(), expiresAt: Date.now() + 60_000 };
+  return {
+    key,
+    data: { key },
+    status: 200,
+    headers: {},
+    storedAt: Date.now(),
+    expiresAt: Date.now() + 60_000,
+  };
 }
 
 describe('onStoreError — Redis', () => {

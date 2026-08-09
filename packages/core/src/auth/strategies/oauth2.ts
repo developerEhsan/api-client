@@ -53,9 +53,7 @@ export function resolveTokenSource(config: OAuth2AuthConfig): {
   return {
     getAccessToken: config.getAccessToken as () => string | null | Promise<string | null>,
     getRefreshToken: config.getRefreshToken as () => string | null | Promise<string | null>,
-    onTokensRefreshed: config.onTokensRefreshed as (
-      tokens: OAuth2Tokens,
-    ) => void | Promise<void>,
+    onTokensRefreshed: config.onTokensRefreshed as (tokens: OAuth2Tokens) => void | Promise<void>,
   };
 }
 

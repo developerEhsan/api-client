@@ -51,7 +51,8 @@ describe('ETag / conditional requests', () => {
     let callCount = 0;
     mock.on('GET', '/things/2', () => {
       callCount += 1;
-      if (callCount === 1) return { status: 200, data: { id: '2', rev: 1 }, headers: { etag: 'abc' } };
+      if (callCount === 1)
+        return { status: 200, data: { id: '2', rev: 1 }, headers: { etag: 'abc' } };
       return { status: 304, headers: { etag: 'abc' } }; // no body
     });
 

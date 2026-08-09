@@ -109,7 +109,7 @@ describe('OAuth2 refresh: callback mechanism', () => {
     expect(failures).toHaveLength(1);
   });
 
-  it("a malformed refresh() return (no accessToken) fails via onRefreshFailed, never proceeds with undefined", async () => {
+  it('a malformed refresh() return (no accessToken) fails via onRefreshFailed, never proceeds with undefined', async () => {
     const failures: unknown[] = [];
     const { api, mock } = makeThingsApi({
       strategy: 'oauth2',

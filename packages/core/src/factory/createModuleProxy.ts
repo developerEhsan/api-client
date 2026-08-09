@@ -196,7 +196,10 @@ export function createModuleProxy(
             body: input_?.body,
             ...(descriptor.cacheTags ? { cacheTags: descriptor.cacheTags(input_) } : {}),
             ...(descriptor.invalidatesTags
-              ? { resolveInvalidatesTags: (result: unknown) => descriptor.invalidatesTags!(input_, result) }
+              ? {
+                  resolveInvalidatesTags: (result: unknown) =>
+                    descriptor.invalidatesTags!(input_, result),
+                }
               : {}),
             ...resolveCacheKeyParts(descriptor, input_),
           };
@@ -221,7 +224,10 @@ export function createModuleProxy(
           body: input_?.body,
           ...(descriptor.cacheTags ? { cacheTags: descriptor.cacheTags(input_) } : {}),
           ...(descriptor.invalidatesTags
-            ? { resolveInvalidatesTags: (result: unknown) => descriptor.invalidatesTags!(input_, result) }
+            ? {
+                resolveInvalidatesTags: (result: unknown) =>
+                  descriptor.invalidatesTags!(input_, result),
+              }
             : {}),
           ...resolveCacheKeyParts(descriptor, input_),
         };

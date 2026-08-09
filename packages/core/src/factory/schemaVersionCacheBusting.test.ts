@@ -4,9 +4,9 @@
  * changes (e.g. after a deploy), rather than serving old-shaped data.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createClient } from './createClient';
 import { createMockAdapter } from '../testing/mockAdapter';
 import type { ModuleContext } from '../types/module.types';
+import { createClient } from './createClient';
 
 const docV1 = { openapi: '3.0.0', info: { title: 'x', version: '1' }, paths: {} };
 const docV2 = { openapi: '3.0.0', info: { title: 'x', version: '2' }, paths: {} };

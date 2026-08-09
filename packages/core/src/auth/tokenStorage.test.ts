@@ -100,9 +100,7 @@ describe('tokenStorage vs manual triplet — construction-time validation', () =
 
     mock.on('GET', '/things/1', (r) => {
       const authHeader = r.headers['Authorization'] ?? r.headers['authorization'];
-      return authHeader === 'Bearer fresh'
-        ? { data: { id: '1' } }
-        : { status: 401, data: {} };
+      return authHeader === 'Bearer fresh' ? { data: { id: '1' } } : { status: 401, data: {} };
     });
 
     const typedApi = api as unknown as { things: { get: (id: string) => Promise<unknown> } };

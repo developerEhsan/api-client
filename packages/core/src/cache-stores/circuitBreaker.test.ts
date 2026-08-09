@@ -10,7 +10,14 @@ import { createLayeredCacheStore } from './layered';
 import type { PersistentCacheStore } from './store.types';
 
 function makeEntry(key: string) {
-  return { key, data: { key }, status: 200, headers: {}, storedAt: Date.now(), expiresAt: Date.now() + 60_000 };
+  return {
+    key,
+    data: { key },
+    status: 200,
+    headers: {},
+    storedAt: Date.now(),
+    expiresAt: Date.now() + 60_000,
+  };
 }
 
 function makeFailingL2(): PersistentCacheStore & { calls: number } {

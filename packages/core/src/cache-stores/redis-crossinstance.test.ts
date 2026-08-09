@@ -41,9 +41,12 @@ function createFakeRedisBus() {
     };
   }
 
-  return { makeClient, rawPublish: (channel: string, message: string) => {
-    for (const fn of subscribers.get(channel) ?? []) fn(message);
-  } };
+  return {
+    makeClient,
+    rawPublish: (channel: string, message: string) => {
+      for (const fn of subscribers.get(channel) ?? []) fn(message);
+    },
+  };
 }
 
 function makeUsersClient(store: ReturnType<typeof createRedisStore>) {
@@ -76,7 +79,7 @@ function makeUsersClient(store: ReturnType<typeof createRedisStore>) {
 }
 
 describe('cross-instance invalidation', () => {
-  it('instance A invalidating a tag evicts instance B\'s locally cached entry for that tag', async () => {
+  it("instance A invalidating a tag evicts instance B's locally cached entry for that tag", async () => {
     const bus = createFakeRedisBus();
     const storeA = createRedisStore(bus.makeClient(), { crossInstance: true });
     const storeB = createRedisStore(bus.makeClient(), { crossInstance: true });
@@ -139,7 +142,11 @@ describe('cross-instance invalidation', () => {
     expect(() =>
       bus.rawPublish(
         'apicache:invalidate',
-        JSON.stringify({ type: 'tags', origin: 'x', values: Array.from({ length: 5000 }, () => 'a') }),
+        JSON.stringify({
+          type: 'tags',
+          origin: 'x',
+          values: Array.from({ length: 5000 }, () => 'a'),
+        }),
       ),
     ).not.toThrow();
 

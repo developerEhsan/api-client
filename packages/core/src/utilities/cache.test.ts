@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { CacheEntry } from '../types/cache.types';
-import { computeCacheKey, createCache, foldExtraKeyParts, isFresh, sanitizeKeyParts } from './cache';
+import {
+  computeCacheKey,
+  createCache,
+  foldExtraKeyParts,
+  isFresh,
+  sanitizeKeyParts,
+} from './cache';
 
 function makeEntry(key: string, expiresAt = 0): CacheEntry {
   return {
@@ -235,10 +241,9 @@ describe('sanitizeKeyParts (spec 10)', () => {
   });
 
   it('strips __proto__/constructor/prototype keys without polluting Object.prototype', () => {
-    const malicious = JSON.parse('{"__proto__": {"polluted": true}, "constructor": "x", "safe": "ok"}') as Record<
-      string,
-      unknown
-    >;
+    const malicious = JSON.parse(
+      '{"__proto__": {"polluted": true}, "constructor": "x", "safe": "ok"}',
+    ) as Record<string, unknown>;
     const sanitized = sanitizeKeyParts(malicious);
     expect(sanitized).toEqual({ safe: 'ok' });
     expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();

@@ -193,7 +193,9 @@ export function createFakeIndexedDb(quota?: QuotaSimulator): {
         transaction?: { objectStore: (name: string) => FakeObjectStore };
       };
       request.result = db;
-      request.transaction = { objectStore: (name: string) => db.transaction(name, 'versionchange').objectStore(name) };
+      request.transaction = {
+        objectStore: (name: string) => db.transaction(name, 'versionchange').objectStore(name),
+      };
       queueMicrotask(() => {
         request.onupgradeneeded?.();
         request.onsuccess?.();

@@ -10,7 +10,10 @@ import type { PersistentCacheStore } from './store.types';
 /** Fires on any backend failure, plus circuit state transitions (spec 08.4). */
 export type LayeredStoreErrorHandler = (
   error: unknown,
-  context: { op: 'get' | 'set' | 'delete' | 'clear' | 'circuit-open' | 'circuit-close'; key?: string },
+  context: {
+    op: 'get' | 'set' | 'delete' | 'clear' | 'circuit-open' | 'circuit-close';
+    key?: string;
+  },
 ) => void;
 
 export interface LayeredCacheStoreOptions {
@@ -70,7 +73,11 @@ export function createLayeredCacheStore(
     circuitOpenedAt = undefined;
   };
 
-  const onL2Failure = (error: unknown, key: string | undefined, op: 'get' | 'set' | 'delete' | 'clear'): void => {
+  const onL2Failure = (
+    error: unknown,
+    key: string | undefined,
+    op: 'get' | 'set' | 'delete' | 'clear',
+  ): void => {
     report(error, { op, key });
     if (!breakerConfig) return;
     consecutiveFailures += 1;

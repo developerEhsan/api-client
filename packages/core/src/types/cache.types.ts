@@ -143,7 +143,10 @@ export interface CacheConfig {
    */
   onStoreError?: (
     error: unknown,
-    context: { op: 'get' | 'set' | 'delete' | 'clear' | 'circuit-open' | 'circuit-close'; key?: string },
+    context: {
+      op: 'get' | 'set' | 'delete' | 'clear' | 'circuit-open' | 'circuit-close';
+      key?: string;
+    },
   ) => void;
   /**
    * Custom cache-key function. When unset, keys are derived from

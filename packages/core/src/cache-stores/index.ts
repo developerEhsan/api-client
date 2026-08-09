@@ -292,7 +292,10 @@ export function createIndexedDbStore(options: IndexedDbStoreOptions = {}): Persi
     set: async (key, entry) => {
       if (options.maxEntries !== undefined) await evictOldest(options.maxEntries);
       const record: unknown = options.encrypt
-        ? ({ __apiClientEncrypted: true, payload: await options.encrypt.encrypt(JSON.stringify(entry)) } satisfies EncryptedRecord)
+        ? ({
+            __apiClientEncrypted: true,
+            payload: await options.encrypt.encrypt(JSON.stringify(entry)),
+          } satisfies EncryptedRecord)
         : entry;
       return tx<IDBValidKey>('readwrite', (s) => s.put(record, key))
         .then(() => undefined)

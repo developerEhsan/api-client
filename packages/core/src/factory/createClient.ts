@@ -35,8 +35,8 @@ import type { SchemaAST } from '../types/openapi.types';
 
 import { type AuthManager, createAuthManager } from '../auth/authManager';
 import { resolveTokenSource, validateOAuth2Config } from '../auth/strategies/oauth2';
-import type { OutgoingInvalidationMessage } from '../cache-stores/store.types';
 import { createLayeredCacheStore } from '../cache-stores/layered';
+import type { OutgoingInvalidationMessage } from '../cache-stores/store.types';
 import { validateResponseBody } from '../codegen/schemaValidator';
 import { detectEnvironment } from '../environment/detect';
 import { assertFetchAvailable, resolveAdapterName } from '../environment/edgeSafe';
@@ -69,8 +69,8 @@ import {
 import { createCancellationManager, isAbortError } from '../utilities/cancellation';
 import { computeDedupeKey, createDeduplicator } from '../utilities/deduplicator';
 import { createQueue } from '../utilities/queue';
-import { type TagIndex, createTagIndex } from '../utilities/tagIndex';
 import { type ResolvedRetryOptions, computeBackoff, withRetry } from '../utilities/retry';
+import { type TagIndex, createTagIndex } from '../utilities/tagIndex';
 import { buildUrl, serializeQuery } from '../utilities/urlBuilder';
 import { isModuleDefinition } from './createModule';
 import {
@@ -396,7 +396,7 @@ export function createClient(config: GlobalConfig): ApiClient {
     maxSize:
       cacheMode === 'l2-only'
         ? Math.min(SHADOW_L1_MAX_SIZE, currentConfig.cache?.maxSize ?? SHADOW_L1_MAX_SIZE)
-        : currentConfig.cache?.maxSize ?? 500,
+        : (currentConfig.cache?.maxSize ?? 500),
     ...(currentConfig.cache?.maxSizeBytes !== undefined
       ? { maxSizeBytes: currentConfig.cache.maxSizeBytes }
       : {}),
@@ -881,8 +881,12 @@ export function createClient(config: GlobalConfig): ApiClient {
       // spec 10: descriptor-level (dynamic, per-args) parts union with
       // static module/global/per-call `cache.cacheKeyParts` — both add
       // dimensions on top of tenant/auth scoping, never replace it.
-      const mergedKeyParts = { ...(spec.cacheKeyParts ?? {}), ...(resolved.cache.cacheKeyParts ?? {}) };
-      const extraParts = Object.keys(mergedKeyParts).length > 0 ? sanitizeKeyParts(mergedKeyParts) : undefined;
+      const mergedKeyParts = {
+        ...(spec.cacheKeyParts ?? {}),
+        ...(resolved.cache.cacheKeyParts ?? {}),
+      };
+      const extraParts =
+        Object.keys(mergedKeyParts).length > 0 ? sanitizeKeyParts(mergedKeyParts) : undefined;
       if (resolved.cache.keyResolver) {
         const keyResolverRequest: ApiRequest = {
           method: method as ApiRequest['method'],

@@ -27,7 +27,15 @@ function makeUsersClient(cache: { cacheableStatuses?: number[]; negativeTtl?: nu
       },
     },
   });
-  return { api: api as unknown as { users: { getUser: (id: string) => Promise<unknown>; createUser: (id: string) => Promise<unknown> } }, mock };
+  return {
+    api: api as unknown as {
+      users: {
+        getUser: (id: string) => Promise<unknown>;
+        createUser: (id: string) => Promise<unknown>;
+      };
+    },
+    mock,
+  };
 }
 
 describe('negative caching', () => {
@@ -113,7 +121,10 @@ describe('negative caching', () => {
       },
     });
     const api = mock2.api as unknown as {
-      users: { getUser: (id: string) => Promise<unknown>; createUser: (id: string) => Promise<unknown> };
+      users: {
+        getUser: (id: string) => Promise<unknown>;
+        createUser: (id: string) => Promise<unknown>;
+      };
     };
     let exists = false;
     mock2.mock.on('GET', '/users/5', () =>

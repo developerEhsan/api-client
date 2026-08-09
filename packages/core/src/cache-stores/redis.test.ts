@@ -7,7 +7,14 @@ import type { CacheEntry } from '../types/cache.types';
 import { type RedisLikeClient, createRedisStore } from './index';
 
 function entry(key: string): CacheEntry {
-  return { key, data: { key }, status: 200, headers: {}, storedAt: Date.now(), expiresAt: Date.now() + 60_000 };
+  return {
+    key,
+    data: { key },
+    status: 200,
+    headers: {},
+    storedAt: Date.now(),
+    expiresAt: Date.now() + 60_000,
+  };
 }
 
 function makeClient(store: Map<string, string>): RedisLikeClient {
@@ -35,7 +42,7 @@ describe('createRedisStore — clear()', () => {
     expect(store.has('app:a')).toBe(true);
   });
 
-  it('deletes only keys matching this store\'s keyPrefix when scanKeys is supplied', async () => {
+  it("deletes only keys matching this store's keyPrefix when scanKeys is supplied", async () => {
     const store = new Map<string, string>();
     store.set('app:a', JSON.stringify(entry('a')));
     store.set('app:b', JSON.stringify(entry('b')));

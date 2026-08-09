@@ -12,15 +12,23 @@ function makeThingsClient(mock: ReturnType<typeof createMockAdapter>, cache: unk
   return createClient({
     baseURL: 'http://mock.test',
     openapi: { mode: 'runtime' },
-    http: { adapter: mock, retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false } },
-    // biome-ignore lint: test-only loose cast for the config shape under test
+    http: {
+      adapter: mock,
+      retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false },
+    },
     cache: cache as never,
     modules: {
       auto: false as const,
       things: {
         methods: {
           get: async (ctx: ModuleContext, id: string) =>
-            (await ctx.request({ method: 'GET', path: '/things/{id}', pathParams: { id } })).data,
+            (
+              await ctx.request({
+                method: 'GET',
+                path: '/things/{id}',
+                pathParams: { id },
+              })
+            ).data,
         },
       },
     },
@@ -69,7 +77,9 @@ describe('memoryPressure', () => {
     mock.on('GET', '/things/1', { data: { id: '1' } });
 
     expect(() =>
-      makeThingsClient(mock, { memoryPressure: { thresholdMb: 1, checkIntervalMs: 1000 } }),
+      makeThingsClient(mock, {
+        memoryPressure: { thresholdMb: 1, checkIntervalMs: 1000 },
+      }),
     ).not.toThrow();
 
     await vi.advanceTimersByTimeAsync(5000);

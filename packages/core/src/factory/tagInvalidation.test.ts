@@ -142,7 +142,10 @@ describe('tag-based invalidation', () => {
           },
         },
       },
-    }) as unknown as { users: { getUser: (id: string) => Promise<unknown> }; cache: { invalidateTags(tags: string[]): number } };
+    }) as unknown as {
+      users: { getUser: (id: string) => Promise<unknown> };
+      cache: { invalidateTags(tags: string[]): number };
+    };
 
     await api.users.getUser('9');
     // Both tags should reach the same cached entry — invalidating via either
@@ -175,7 +178,10 @@ describe('tag-based invalidation', () => {
           },
         },
       },
-    }) as unknown as { users: { getUser: (id: string) => Promise<unknown> }; cache: { invalidateTags(tags: string[]): number } };
+    }) as unknown as {
+      users: { getUser: (id: string) => Promise<unknown> };
+      cache: { invalidateTags(tags: string[]): number };
+    };
 
     await api.users.getUser('1'); // stored under user:1, maxSize 1
     await api.users.getUser('2'); // evicts user:1's entry from the LRU store

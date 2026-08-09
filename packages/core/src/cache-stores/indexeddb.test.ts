@@ -72,7 +72,10 @@ describe('createIndexedDbStore', () => {
 
     const result = await store.get('missing-or-broken');
     expect(result).toBeUndefined();
-    expect(onStoreError).toHaveBeenCalledWith(expect.anything(), { op: 'get', key: 'missing-or-broken' });
+    expect(onStoreError).toHaveBeenCalledWith(expect.anything(), {
+      op: 'get',
+      key: 'missing-or-broken',
+    });
   });
 
   it('no-ops (resolves undefined) when indexedDB is unavailable', async () => {

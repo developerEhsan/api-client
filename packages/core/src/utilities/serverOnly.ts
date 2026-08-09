@@ -1,3 +1,4 @@
+import { hasDomGlobals } from '../environment/detect';
 /**
  * Dev-time, opt-in guard for the SSR RPC bridge's trust boundary (spec 06):
  * throw immediately when server-only code is evaluated/called in a browser
@@ -6,7 +7,6 @@
  * last line of defense — this is defense-in-depth, not a replacement).
  */
 import { ConfigurationError } from '../errors/ConfigurationError';
-import { hasDomGlobals } from '../environment/detect';
 
 /**
  * Throws a {@link ConfigurationError} when called in a browser context

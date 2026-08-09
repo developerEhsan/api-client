@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMockAdapter } from '../testing/mockAdapter';
 import type { ModuleContext, ModuleRequestSpec } from '../types/module.types';
 import { createClient } from './createClient';
-import { createModuleProxy, type RequestRunner } from './createModuleProxy';
+import { type RequestRunner, createModuleProxy } from './createModuleProxy';
 
 type DashboardApi = {
   dashboard: { getSummary: (workspaceId: string) => Promise<unknown> };

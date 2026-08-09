@@ -20,7 +20,8 @@ function buildClient(serverOnly: boolean) {
       }),
       things: defineModule({
         methods: {
-          get: async (ctx: ModuleContext) => (await ctx.request({ method: 'GET', path: '/things' })).data,
+          get: async (ctx: ModuleContext) =>
+            (await ctx.request({ method: 'GET', path: '/things' })).data,
         },
       }),
     },
