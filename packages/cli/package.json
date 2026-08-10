@@ -35,9 +35,7 @@
   "bin": {
     "developerEhsan-api-client": "./dist/cli.js"
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "scripts": {
     "build": "tsup",
     "test": "vitest run --passWithNoTests",
