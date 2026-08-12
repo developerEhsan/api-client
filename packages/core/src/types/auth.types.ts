@@ -4,6 +4,15 @@
 
 import type { ApiError } from '../errors/ApiError';
 
+/**
+ * The `strategy` discriminant shared by every member of {@link AuthConfig}.
+ * Selects which auth material (if any) is attached to outgoing requests.
+ *
+ * @example
+ * const strategy: AuthStrategyName = 'bearer'
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/authentication.md}
+ */
 export type AuthStrategyName = 'bearer' | 'cookie' | 'apiKey' | 'oauth2' | 'none';
 
 /**

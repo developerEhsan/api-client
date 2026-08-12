@@ -18,6 +18,21 @@ export interface SchemaCache {
   clear(): void;
 }
 
+/**
+ * Create an in-memory {@link SchemaCache} for the runtime-fetched OpenAPI
+ * schema. Used internally by the schema loader/drift detector when
+ * `openapi.mode !== 'codegen'`; exposed for advanced setups that need to
+ * inspect or seed the cache directly.
+ *
+ * @example
+ * import { createSchemaCache } from '@developerehsan/api-client'
+ *
+ * const cache = createSchemaCache();
+ * cache.set(schemaAst, 'sha256-...');
+ * console.log(cache.get(), cache.hash(), cache.fetchedAt());
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/schema-validation.md}
+ */
 export function createSchemaCache(): SchemaCache {
   let current: SchemaAST | undefined;
   let lastGood: SchemaAST | undefined;

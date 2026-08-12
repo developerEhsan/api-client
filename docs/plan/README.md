@@ -32,6 +32,7 @@ and proceed; the design intent is what matters, not the exact line.
 8. [`08-additional-hardening.md`](./08-additional-hardening.md) — grab-bag of smaller, independent improvements (negative caching, ETag support, metrics hooks, circuit breaker, at-rest encryption, logout-triggered clear, schema-version cache busting, dry-run invalidation).
 9. [`09-filesystem-cache-store.md`](./09-filesystem-cache-store.md) — disk-backed `PersistentCacheStore` adapter (Next.js data-cache / nginx `proxy_cache` precedent) for long-running server instances that want to trade RAM for disk; not for serverless/edge.
 10. [`10-custom-cache-key-composition.md`](./10-custom-cache-key-composition.md) — `cacheKeyParts` lets a developer add extra key dimensions (e.g. a viewed workspace/user id) on top of the built-in tenant/auth scoping, without the unsafe full-override `keyResolver` has to accept today.
+11. [`11-docs-jsdoc-examples-overhaul.md`](./11-docs-jsdoc-examples-overhaul.md) — independent of 01-10 (can run in parallel): JSDoc `@example` coverage on every public export/config field, example apps demonstrating every currently-undemonstrated feature (queue, multi-tenancy, streaming, cache-persistence, rate-limiting, environments, timeouts, manual-types, testing, codegen), and a depth pass on the 6 thinnest docs pages.
 
 ## Already implemented — do not rebuild
 

@@ -139,3 +139,24 @@ export const rpcHandler = createRpcHandler(api, {
     console.error(`[rpc] ${call?.module}.${call?.method} failed:`, error);
   },
 });
+
+/**
+ * A SECOND, dedicated bridge for the rate-limiting demo (`app/rate-limit/`).
+ * Docs: https://github.com/developerEhsan/api-client/blob/master/docs/rpc-rate-limiting.md
+ *
+ * Deliberately tiny (3 calls / 10s, one shared bucket) so a developer can
+ * trigger the 429 in a few clicks without touching — or exhausting — the main
+ * app's `rpcHandler` budget above. Everything else (deny-by-default `expose`)
+ * is identical to the main bridge.
+ */
+const demoLimiter = createRateLimiter({ windowMs: 10_000, max: 3 });
+
+export const rateLimitDemoHandler = createRpcHandler(api, {
+  expose: {
+    products: ['getProductById'],
+  },
+  onRequest: demoLimiter.onRequest,
+  onError: (error, call) => {
+    console.error(`[rpc:rate-limit-demo] ${call?.module}.${call?.method} failed:`, error);
+  },
+});

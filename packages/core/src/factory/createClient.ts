@@ -107,6 +107,17 @@ export interface ClientConfigApi {
   resolve(moduleName?: string, perCall?: PerCallConfig): ResolvedConfigSnapshot;
 }
 
+/**
+ * Handler for a custom (non-built-in) client event emitted via `ctx.emit` and
+ * subscribed to with `api.on(eventName, listener)`. Built-in events use the
+ * typed {@link ClientEventMap} overload instead.
+ *
+ * @example
+ * const onInvoicePaid: ClientEventListener = (payload) => console.log(payload)
+ * api.on('module:invoices:paid', onInvoicePaid)
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/hooks-and-events.md}
+ */
 export type ClientEventListener = (payload: unknown) => void;
 
 /**
