@@ -59,8 +59,11 @@ export function MultiTenancyDemo() {
       const p = await products.getOne(1);
       const ms = Math.round(performance.now() - t0);
       push(
-        `tenant "${activeTenant}": products/1 "${(p as { title?: string }).title}" in ${ms}ms` +
-          (ms < 5 ? ' (cache hit — same tenant seen before)' : ' (network — first time for this tenant)'),
+        `tenant "${activeTenant}": products/1 "${(p as { title?: string }).title}" in ${ms}ms${
+          ms < 5
+            ? ' (cache hit — same tenant seen before)'
+            : ' (network — first time for this tenant)'
+        }`,
       );
     } finally {
       setBusy(false);
@@ -90,9 +93,8 @@ export function MultiTenancyDemo() {
       </Button>
 
       <p style={{ marginTop: 8, fontSize: 13, opacity: 0.8 }}>
-        Fetch as "acme", then "globex", then "acme" again — the third call is a cache hit
-        (fast), proving acme's cached copy survived the switch and stayed isolated from
-        globex's.
+        Fetch as "acme", then "globex", then "acme" again — the third call is a cache hit (fast),
+        proving acme's cached copy survived the switch and stayed isolated from globex's.
       </p>
 
       <pre style={{ marginTop: 12, maxHeight: 200, overflow: 'auto' }}>{log.join('\n')}</pre>

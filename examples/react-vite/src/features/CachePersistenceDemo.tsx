@@ -56,10 +56,11 @@ export function CachePersistenceDemo() {
       const p = await products.getOne(1);
       const ms = Math.round(performance.now() - t0);
       push(
-        `products/1 "${(p as { title?: string }).title}" in ${ms}ms` +
-          (ms < 15
+        `products/1 "${(p as { title?: string }).title}" in ${ms}ms${
+          ms < 15
             ? ' — served from cache (memory L1, or IndexedDB L2 if this is right after a reload)'
-            : ' — network (first fetch, or the 5-minute TTL expired)'),
+            : ' — network (first fetch, or the 5-minute TTL expired)'
+        }`,
       );
     } finally {
       setBusy(false);

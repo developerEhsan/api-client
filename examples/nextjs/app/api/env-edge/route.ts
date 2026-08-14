@@ -23,7 +23,11 @@ export async function GET(): Promise<Response> {
   };
   try {
     // Requesting 'axios' explicitly — on edge this gets downgraded to 'fetch'.
-    createClient({ baseURL: 'https://dummyjson.com', openapi: { mode: 'runtime' }, http: { adapter: 'axios' } });
+    createClient({
+      baseURL: 'https://dummyjson.com',
+      openapi: { mode: 'runtime' },
+      http: { adapter: 'axios' },
+    });
   } finally {
     console.warn = originalWarn;
   }

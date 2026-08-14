@@ -51,8 +51,11 @@ export function EnvironmentDemo() {
           Environment detection &amp; adapter downgrade
         </h1>
         <p className="text-slate-500 leading-relaxed">
-          Both routes request <code>http: {'{'} adapter: &apos;axios&apos; {'}'}</code>. Only the edge
-          route gets downgraded to fetch.
+          Both routes request{' '}
+          <code>
+            http: {'{'} adapter: &apos;axios&apos; {'}'}
+          </code>
+          . Only the edge route gets downgraded to fetch.
         </p>
       </div>
 

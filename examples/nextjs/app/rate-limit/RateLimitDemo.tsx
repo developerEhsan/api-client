@@ -44,11 +44,9 @@ export function RateLimitDemo() {
       <div className="mb-10 space-y-3">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">RPC rate limiting</h1>
         <p className="text-slate-500 leading-relaxed">
-          The bridge behind this page allows 3 calls / 10s. Firing 5 sequential calls should
-          show the first 3 succeed and the last 2 come back as a 429{' '}
-          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm">
-            rate_limited
-          </code>{' '}
+          The bridge behind this page allows 3 calls / 10s. Firing 5 sequential calls should show
+          the first 3 succeed and the last 2 come back as a 429{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-sm">rate_limited</code>{' '}
           error.
         </p>
       </div>
@@ -66,7 +64,9 @@ export function RateLimitDemo() {
           <li
             key={o.n}
             className={`rounded-md border p-3 font-mono text-sm ${
-              o.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-800'
+              o.ok
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-red-200 bg-red-50 text-red-800'
             }`}
           >
             #{o.n}: {o.ok ? `OK — "${o.title}"` : o.message}

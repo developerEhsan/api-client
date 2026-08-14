@@ -78,10 +78,7 @@ export function StreamingDemo() {
         { method: 'GET', path: '/__stream/sse' },
         { mode: 'sse', signal: ac.signal },
       )) {
-        setSseLines((prev) => [
-          ...prev,
-          `event=${event.event ?? '(none)'} data=${event.data}`,
-        ]);
+        setSseLines((prev) => [...prev, `event=${event.event ?? '(none)'} data=${event.data}`]);
       }
     } finally {
       setBusy(null);

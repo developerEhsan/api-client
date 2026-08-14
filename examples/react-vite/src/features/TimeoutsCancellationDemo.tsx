@@ -12,12 +12,7 @@
  * This file is deliberately self-contained (own client) so both paths are
  * visible side by side without the rest of the app's config in the way.
  */
-import {
-  TimeoutError,
-  createClient,
-  defineModule,
-  isAbortError,
-} from '@developerehsan/api-client';
+import { TimeoutError, createClient, defineModule, isAbortError } from '@developerehsan/api-client';
 import { useRef, useState } from 'react';
 import { Button, Panel } from '../components/ui';
 
@@ -32,10 +27,7 @@ const api = createClient({
         // Server-side delay, so both timeout and cancellation have time to fire
         // before the response would otherwise arrive.
         fetch: (ctx, opts?: { timeout?: number; signal?: AbortSignal }) =>
-          ctx.request(
-            { method: 'GET', path: '/http/200', query: { delay: 3000 } },
-            opts,
-          ),
+          ctx.request({ method: 'GET', path: '/http/200', query: { delay: 3000 } }, opts),
       },
     }),
   },

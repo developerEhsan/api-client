@@ -20,7 +20,11 @@ export async function GET(): Promise<Response> {
   };
   try {
     // Requesting 'axios' explicitly — on Node this is honored as-is.
-    createClient({ baseURL: 'https://dummyjson.com', openapi: { mode: 'runtime' }, http: { adapter: 'axios' } });
+    createClient({
+      baseURL: 'https://dummyjson.com',
+      openapi: { mode: 'runtime' },
+      http: { adapter: 'axios' },
+    });
   } finally {
     console.warn = originalWarn;
   }

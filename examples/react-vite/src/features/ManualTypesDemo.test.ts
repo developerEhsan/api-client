@@ -21,7 +21,8 @@ function buildTestApi() {
       auto: false,
       quotes: defineModule({
         methods: {
-          getQuote: async (ctx) => (await ctx.request({ method: 'GET', path: '/quotes/random' })).data,
+          getQuote: async (ctx) =>
+            (await ctx.request({ method: 'GET', path: '/quotes/random' })).data,
           getTodo: async (ctx, id: number) =>
             (await ctx.request({ method: 'GET', path: '/todos/{id}', pathParams: { id } })).data,
         },
