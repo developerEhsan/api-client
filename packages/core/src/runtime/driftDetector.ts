@@ -76,6 +76,16 @@ export function hasDrift(diff: SchemaDiff): boolean {
   );
 }
 
+/**
+ * How {@link handleDrift} reacts when the runtime schema diverges from the
+ * previously loaded/generated one. `'strict'` throws a {@link SchemaError};
+ * `'loose'` (or omitted) invokes `onDriftDetected` if provided, else warns.
+ *
+ * @example
+ * const drift: DriftPolicy = { mode: 'loose', onDriftDetected: (diff) => console.warn(diff) }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/schema-validation.md}
+ */
 export interface DriftPolicy {
   mode?: 'strict' | 'loose';
   onDriftDetected?: (diff: SchemaDiff) => void;

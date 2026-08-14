@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "generate": "developerEhsan-api-client generate --input ./lib/api/openapi.json --output ./lib/api/types/generated"
   },
   "dependencies": {
     "@developerehsan/api-client": "^1.0.0",

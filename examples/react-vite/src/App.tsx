@@ -11,16 +11,37 @@
  */
 import { useState } from 'react';
 import './App.css';
+import { CachePersistenceDemo } from './features/CachePersistenceDemo';
+import { ConcurrencyQueueDemo } from './features/ConcurrencyQueueDemo';
 import { DirectClientDemo } from './features/DirectClientDemo';
 import { FeatureLab } from './features/FeatureLab';
+import { ManualTypesDemo } from './features/ManualTypesDemo';
+import { MultiTenancyDemo } from './features/MultiTenancyDemo';
+import { StreamingDemo } from './features/StreamingDemo';
 import { TanstackDemo } from './features/TanstackDemo';
+import { TimeoutsCancellationDemo } from './features/TimeoutsCancellationDemo';
 
-type Tab = 'direct' | 'tanstack' | 'lab';
+type Tab =
+  | 'direct'
+  | 'tanstack'
+  | 'lab'
+  | 'queue'
+  | 'tenancy'
+  | 'streaming'
+  | 'persistence'
+  | 'timeouts'
+  | 'manual-types';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'direct', label: '1 · Direct client' },
   { id: 'tanstack', label: '2 · TanStack Query' },
   { id: 'lab', label: '3 · Feature lab' },
+  { id: 'queue', label: '4 · Concurrency queue' },
+  { id: 'tenancy', label: '5 · Multi-tenancy' },
+  { id: 'streaming', label: '6 · Streaming' },
+  { id: 'persistence', label: '7 · Cache persistence' },
+  { id: 'timeouts', label: '8 · Timeouts & cancellation' },
+  { id: 'manual-types', label: '9 · Manual types' },
 ];
 
 function App() {
@@ -55,6 +76,12 @@ function App() {
         {tab === 'direct' ? <DirectClientDemo /> : null}
         {tab === 'tanstack' ? <TanstackDemo /> : null}
         {tab === 'lab' ? <FeatureLab /> : null}
+        {tab === 'queue' ? <ConcurrencyQueueDemo /> : null}
+        {tab === 'tenancy' ? <MultiTenancyDemo /> : null}
+        {tab === 'streaming' ? <StreamingDemo /> : null}
+        {tab === 'persistence' ? <CachePersistenceDemo /> : null}
+        {tab === 'timeouts' ? <TimeoutsCancellationDemo /> : null}
+        {tab === 'manual-types' ? <ManualTypesDemo /> : null}
       </main>
 
       <footer className="app__footer">

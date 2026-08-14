@@ -38,6 +38,26 @@ async function defaultFetchJson(url: string): Promise<unknown> {
   return response.json();
 }
 
+/**
+ * Create a {@link SchemaLoader} that fetches, parses, and caches the runtime
+ * OpenAPI schema, with automatic fallback to the last known-good schema on a
+ * failed refresh (spec S6). Used internally when `openapi.mode !== 'codegen'`;
+ * exposed for callers who want to drive polling/drift detection manually.
+ *
+ * @example
+ * import { createSchemaCache, createSchemaLoader } from '@developerehsan/api-client'
+ *
+ * const loader = createSchemaLoader({ cache: createSchemaCache() });
+ * const schema = await loader.load('https://api.example.com/openapi.json');
+ * const stopPolling = loader.startPolling(
+ *   'https://api.example.com/openapi.json',
+ *   60_000,
+ *   { mode: 'loose', onDriftDetected: (diff) => console.warn(diff) },
+ * );
+ * // later: stopPolling()
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/schema-validation.md}
+ */
 export function createSchemaLoader(deps: SchemaLoaderDeps): SchemaLoader {
   const { cache } = deps;
   const fetchJson = deps.fetchJson ?? defaultFetchJson;

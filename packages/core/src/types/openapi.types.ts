@@ -65,6 +65,19 @@ export type PathMap = Record<string, Partial<Record<HttpMethod, string>>>;
 /** tag name -> operationIds grouped under it. */
 export type TagMap = Record<string, string[]>;
 
+/**
+ * The normalized intermediate representation of an OpenAPI 3.x document —
+ * produced by the codegen parser at build time (or the runtime schema
+ * loader in non-codegen mode) and consumed by the emitters, validator, and
+ * drift detector.
+ *
+ * @example
+ * function operationCount(ast: SchemaAST): number {
+ *   return Object.keys(ast.operations).length;
+ * }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/codegen.md}
+ */
 export interface SchemaAST {
   openapiVersion: string;
   info: { title: string; version: string };

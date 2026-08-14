@@ -180,6 +180,19 @@ export interface ModuleRequestSpec {
 /** A single method on a module. */
 export type ModuleMethod = (this: void, ...args: never[]) => Promise<unknown>;
 
+/**
+ * Shape of the `methods` map passed to `defineModule`/`ModuleDefinition`: each
+ * method takes the {@link ModuleContext} first, then any custom arguments.
+ *
+ * @example
+ * const methods: ModuleMethods = {
+ *   async createInvoice(ctx, input: { total: number }) {
+ *     return ctx.request<{ id: string }>({ method: 'POST', path: '/invoices', body: input });
+ *   },
+ * }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/manual-types.md}
+ */
 export type ModuleMethods = Record<
   string,
   (ctx: ModuleContext, ...args: never[]) => Promise<unknown>

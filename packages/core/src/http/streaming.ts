@@ -7,7 +7,17 @@
  * (browser, edge, Node 18+).
  */
 
-/** A parsed Server-Sent Event. */
+/**
+ * A parsed Server-Sent Event, as yielded by {@link parseSse} / `ctx.stream`
+ * with `{ mode: 'sse' }`.
+ *
+ * @example
+ * function onEvent(ev: SseEvent): void {
+ *   if (ev.event === 'price') console.log(JSON.parse(ev.data))
+ * }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/streaming.md}
+ */
 export interface SseEvent {
   /** The `event:` field, or `undefined` for the default (`message`). */
   event?: string;
@@ -17,7 +27,21 @@ export interface SseEvent {
   id?: string;
 }
 
-/** Iterate the raw byte chunks of a stream (aborts cleanly on `signal`). */
+/**
+ * Iterate the raw byte chunks of a stream (aborts cleanly on `signal`). The
+ * lowest-level primitive here — {@link iterateLines}/{@link parseNdjson}/
+ * {@link parseSse} are built on top of it.
+ *
+ * @example
+ * import { iterateBytes } from '@developerehsan/api-client'
+ *
+ * const response = await fetch('https://example.com/download')
+ * for await (const chunk of iterateBytes(response.body!)) {
+ *   console.log(chunk.byteLength)
+ * }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/streaming.md}
+ */
 export async function* iterateBytes(
   stream: ReadableStream<Uint8Array>,
   signal?: AbortSignal,
@@ -35,7 +59,20 @@ export async function* iterateBytes(
   }
 }
 
-/** Read a byte stream as a sequence of text lines (handles CRLF/LF, buffers partials). */
+/**
+ * Read a byte stream as a sequence of text lines (handles CRLF/LF, buffers
+ * partials). Used internally by {@link parseNdjson} and {@link parseSse}.
+ *
+ * @example
+ * import { iterateLines } from '@developerehsan/api-client'
+ *
+ * const response = await fetch('https://example.com/log.txt')
+ * for await (const line of iterateLines(response.body!)) {
+ *   console.log(line)
+ * }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/streaming.md}
+ */
 export async function* iterateLines(
   stream: ReadableStream<Uint8Array>,
   signal?: AbortSignal,
@@ -78,6 +115,8 @@ export async function* iterateLines(
  *     process.stdout.write(chunk.token)
  *   }
  * }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/streaming.md}
  */
 export async function* parseNdjson<T = unknown>(
   stream: ReadableStream<Uint8Array>,
@@ -102,6 +141,8 @@ export async function* parseNdjson<T = unknown>(
  * )) {
  *   if (ev.event === 'price') console.log(JSON.parse(ev.data))
  * }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/streaming.md}
  */
 export async function* parseSse(
   stream: ReadableStream<Uint8Array>,
