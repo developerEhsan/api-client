@@ -30,7 +30,7 @@ describe('path-param inference (B2)', () => {
   });
 
   it('ctx.request enforces path params at the call site', () => {
-    const ctx = undefined as unknown as ModuleContext;
+    declare const ctx: ModuleContext;
     // Valid: matching param present.
     expectTypeOf(
       ctx.request<{ id: number }>({
