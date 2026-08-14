@@ -13,11 +13,16 @@ import {
  */
 import type { AuthConfig, AuthContribution } from '../types/auth.types';
 
+/** Dependencies {@link createAuthManager} needs to build an {@link AuthManager}. */
 export interface AuthManagerDeps {
   adapter: HttpAdapter;
   classifyError: (input: ClassifierInput) => ApiError;
 }
 
+/**
+ * The pipeline's single entry point for authentication: resolving per-request
+ * auth material and handling 401-driven token refresh.
+ */
 export interface AuthManager {
   /** Resolve the auth contribution for an outgoing request (step 8). */
   resolve(auth: AuthConfig, skip: boolean): Promise<AuthContribution>;
@@ -29,6 +34,26 @@ export interface AuthManager {
   handleUnauthorized(auth: AuthConfig): Promise<boolean>;
 }
 
+/**
+ * Build an {@link AuthManager} — combines request-time auth injection with the
+ * shared-mutex OAuth2 refresh flow. Used internally by `createClient`; only
+ * needed directly when composing the pipeline yourself.
+ *
+ * @example
+ * import { createAuthManager } from '@developerehsan/api-client'
+ * import { createFetchAdapter } from '@developerehsan/api-client'
+ *
+ * const authManager = createAuthManager({
+ *   adapter: createFetchAdapter(),
+ *   classifyError: (input) => new Error(input.message) as never,
+ * });
+ * const contribution = await authManager.resolve(
+ *   { strategy: 'bearer', getToken: () => 'abc' },
+ *   false,
+ * );
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/authentication.md}
+ */
 export function createAuthManager(deps: AuthManagerDeps): AuthManager {
   const refresher: TokenRefresher = createTokenRefresher(deps);
 

@@ -172,4 +172,27 @@ The handler enforces all of the following before dispatch:
 > The bridge client *type* mirrors your whole API surface, so
 > `api.products.deleteProduct(...)` still type-checks even if it isn't exposed —
 > the `expose` allowlist is the runtime gate, and an un-exposed call is denied.
+
+## Dev-time server-only guard
+
+`createRpcHandler` (and therefore `createNextRpcAction`/`createRpcRouteHandler`,
+which both wrap an already-constructed handler) throws immediately if
+**constructed** in a browser context — `enforceServerOnly` defaults to `true`.
+This is a dev-time net that catches an accidental client-side import of
+server code the moment the handler is built, instead of only discovering it
+via CI's `scripts/check-browser-bundle.mjs` grep on the built bundle. That
+grep remains the authoritative last line of defense — this guard is
+defense-in-depth on top of it, not a replacement.
+
+```ts
+// Only if you have a specific, documented reason (e.g. a jsdom-based unit
+// test importing server code directly) — never auto-detected, always explicit:
+createRpcHandler(api, { expose: { ... }, enforceServerOnly: false })
+```
+
+The same guard is available for your own server-only modules via
+`defineModule({ serverOnly: true, methods: { ... } })` — checked once at
+module construction (not per call) so a module wrapping direct DB access or
+other server-only concerns throws immediately if it ends up in a browser
+bundle. See `SECURITY.md`.
 </content>

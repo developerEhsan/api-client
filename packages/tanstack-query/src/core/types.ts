@@ -3,12 +3,24 @@
  * option objects (`{ queryKey, queryFn, ... }`) are plain and consumed
  * identically by React/Vue/Solid Query, so the core is framework-neutral; the
  * per-framework entry points only re-export with framework-appropriate typing.
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/tanstack-query.md}
  */
 
-/** Stable, serializable, hierarchical query key (spec §7.2). */
+/**
+ * Stable, serializable, hierarchical query key (spec §7.2).
+ *
+ * @example
+ * const key: QueryKey = ['developerEhsan', 'pet', 'findPetsByStatus', { status: 'available' }]
+ */
 export type QueryKey = readonly ['developerEhsan', string, string, ...unknown[]];
 
-/** HTTP method as it appears in a generated method descriptor. */
+/**
+ * HTTP method as it appears in a generated method descriptor.
+ *
+ * @example
+ * const method: DescriptorMethod = 'GET'
+ */
 export type DescriptorMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
 /**
@@ -16,6 +28,9 @@ export type DescriptorMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HE
  * also accepts the paths-stripped `rpcModules` used behind the SSR bridge: there
  * `path` is absent and `hasPathParams` carries the only bit `computeEnabled`
  * needs, so no backend path string reaches the browser.
+ *
+ * @example
+ * const descriptor: MethodDescriptor = { method: 'GET', path: '/pet/findByStatus' }
  */
 export interface MethodDescriptor {
   method: DescriptorMethod;
@@ -27,8 +42,21 @@ export interface MethodDescriptor {
   operationId?: string;
 }
 
+/**
+ * A module's method name -> descriptor map, as produced by codegen.
+ *
+ * @example
+ * const pet: ModuleDescriptor = { findPetsByStatus: { method: 'GET', path: '/pet/findByStatus' } }
+ */
 export type ModuleDescriptor = Record<string, MethodDescriptor>;
 
+/**
+ * Input to `createQueryIntegration`: the descriptor map plus pagination
+ * hooks.
+ *
+ * @example
+ * const config: IntegrationConfig = { modules, pageParamName: 'cursor' }
+ */
 export interface IntegrationConfig {
   /** Module -> method descriptors (e.g. the codegen `generatedModules`). */
   modules: Record<string, ModuleDescriptor>;
@@ -44,22 +72,45 @@ export interface IntegrationConfig {
 /**
  * The minimal client shape the integration needs: indexable modules whose
  * methods accept `(params, perCall?)`. Matches the runtime `ApiClient` proxy.
+ *
+ * @example
+ * const client: ClientLike = { pet: { findPetsByStatus: (params) => fetch('...').then((r) => r.json()) } }
  */
 export type ClientLike = Record<
   string,
   Record<string, (params?: unknown, perCall?: { signal?: AbortSignal }) => Promise<unknown>>
 >;
 
+/**
+ * Context passed to a generated `queryFn`, carrying the query's `AbortSignal`.
+ *
+ * @example
+ * const queryFn = (ctx: QueryFnContext) => fetch('/pet/1', { signal: ctx.signal })
+ */
 export interface QueryFnContext {
   signal?: AbortSignal;
 }
 
+/**
+ * A TanStack Query-compatible options object for a GET/HEAD method, as
+ * produced by `q.<module>.queryOptions.<method>(input)`.
+ *
+ * @example
+ * const { data } = useQuery(q.pet.queryOptions.findPetsByStatus({ status: 'available' }))
+ */
 export interface GeneratedQueryOptions<TData> {
   queryKey: QueryKey;
   queryFn: (ctx: QueryFnContext) => Promise<TData>;
   enabled: boolean;
 }
 
+/**
+ * A TanStack Mutation-compatible options object for a write method, as
+ * produced by `q.<module>.mutationOptions.<method>(opts)`.
+ *
+ * @example
+ * const add = useMutation(q.pet.mutationOptions.addPet({ onSuccess: () => console.log('added') }))
+ */
 export interface GeneratedMutationOptions<TData, TVars> {
   mutationKey: QueryKey;
   mutationFn: (vars: TVars) => Promise<TData>;
@@ -68,11 +119,25 @@ export interface GeneratedMutationOptions<TData, TVars> {
   onMutate?: (vars: TVars) => unknown;
 }
 
+/**
+ * Context passed to a generated infinite `queryFn`, carrying the current page
+ * param and `AbortSignal`.
+ *
+ * @example
+ * const queryFn = (ctx: InfinitePageContext) => fetch(`/pet?cursor=${ctx.pageParam}`, { signal: ctx.signal })
+ */
 export interface InfinitePageContext {
   pageParam: unknown;
   signal?: AbortSignal;
 }
 
+/**
+ * A TanStack `useInfiniteQuery`-compatible options object, as produced by
+ * `q.<module>.infiniteQueryOptions.<method>(input)` for paginated GET methods.
+ *
+ * @example
+ * const { data } = useInfiniteQuery(q.pet.infiniteQueryOptions.findPetsByStatus({ status: 'available' }))
+ */
 export interface GeneratedInfiniteQueryOptions<TData> {
   queryKey: QueryKey;
   queryFn: (ctx: InfinitePageContext) => Promise<TData>;
@@ -81,12 +146,24 @@ export interface GeneratedInfiniteQueryOptions<TData> {
   enabled: boolean;
 }
 
-/** A minimal QueryClient surface for invalidation (all frameworks share it). */
+/**
+ * A minimal QueryClient surface for invalidation (all frameworks share it).
+ *
+ * @example
+ * const queryClient = useQueryClient() satisfies QueryClientLike
+ */
 export interface QueryClientLike {
   invalidateQueries(filters: { queryKey: readonly unknown[] }): Promise<void>;
 }
 
-/** Per-module integration surface. */
+/**
+ * Per-module integration surface returned by `createQueryIntegration` for one
+ * module: query/mutation/infinite-query factories, key helpers, and
+ * invalidation.
+ *
+ * @example
+ * const pet: ModuleIntegration = q.pet
+ */
 export interface ModuleIntegration {
   /** Query option factories for the module's GET/HEAD methods. */
   queryOptions: Record<string, (params?: unknown) => GeneratedQueryOptions<unknown>>;
@@ -113,6 +190,13 @@ export interface ModuleIntegration {
   invalidateQueries: (client: QueryClientLike, method?: string) => Promise<void>;
 }
 
+/**
+ * The full return value of `createQueryIntegration`: module name -> its
+ * {@link ModuleIntegration}.
+ *
+ * @example
+ * const q: QueryIntegration = createQueryIntegration(client, { modules })
+ */
 export type QueryIntegration = Record<string, ModuleIntegration>;
 
 // ---------------------------------------------------------------------------
@@ -142,7 +226,14 @@ type IsPaginatedDescriptor<D> = D extends { isPaginated: true } ? true : false;
 /** Module method type from the client, or a permissive fallback when absent. */
 type MethodOf<Mod, K> = K extends keyof Mod ? Mod[K] : ClientMethod;
 
-/** Typed per-module surface derived from the client module `Mod` + descriptors `Descs`. */
+/**
+ * Typed per-module surface derived from the client module `Mod` + descriptors
+ * `Descs`. This is what makes `q.pet.queryOptions.findPetsByStatus(input)`
+ * infer `input`/`TData` from the real client method, with no cast needed.
+ *
+ * @example
+ * type PetIntegration = TypedModuleIntegration<Client['pet'], Mods['pet']>
+ */
 export interface TypedModuleIntegration<Mod, Descs extends ModuleDescriptor> {
   queryOptions: {
     [K in keyof Descs as IsQueryDescriptor<Descs[K]> extends true ? K : never]: (
@@ -172,7 +263,16 @@ export interface TypedModuleIntegration<Mod, Descs extends ModuleDescriptor> {
   invalidateQueries: ModuleIntegration['invalidateQueries'];
 }
 
-/** Fully-typed integration: module → typed query/mutation factories. */
+/**
+ * Fully-typed integration: module → typed query/mutation factories. Returned
+ * by the typed overload of `createQueryIntegration` when given a typed client
+ * and an `as const` descriptor map.
+ *
+ * @example
+ * const q: TypedQueryIntegration<Client, typeof modules> = createQueryIntegration(client, { modules })
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/tanstack-query.md}
+ */
 export type TypedQueryIntegration<Client, Mods extends Record<string, ModuleDescriptor>> = {
   [M in keyof Mods & string]: TypedModuleIntegration<
     M extends keyof Client ? Client[M] : unknown,

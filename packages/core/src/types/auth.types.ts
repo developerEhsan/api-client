@@ -4,6 +4,15 @@
 
 import type { ApiError } from '../errors/ApiError';
 
+/**
+ * The `strategy` discriminant shared by every member of {@link AuthConfig}.
+ * Selects which auth material (if any) is attached to outgoing requests.
+ *
+ * @example
+ * const strategy: AuthStrategyName = 'bearer'
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/authentication.md}
+ */
 export type AuthStrategyName = 'bearer' | 'cookie' | 'apiKey' | 'oauth2' | 'none';
 
 /**
@@ -135,9 +144,92 @@ export interface OAuth2Tokens {
 }
 
 /**
+ * Pluggable token persistence, mirroring `PersistentCacheStore`'s adapter
+ * pattern. When supplied instead of the manual `getAccessToken`/
+ * `getRefreshToken`/`onTokensRefreshed` triplet, the client derives all
+ * three from this adapter.
+ */
+export interface TokenStorage {
+  /** Returns the current tokens (or `null` when none are stored). Sync or async. */
+  getTokens(): OAuth2Tokens | null | Promise<OAuth2Tokens | null>;
+  /**
+   * Persist freshly issued tokens. Called exactly once per successful
+   * refresh — never a second write path alongside this.
+   */
+  setTokens(tokens: OAuth2Tokens): void | Promise<void>;
+  /** Clear stored tokens (e.g. on logout). */
+  clearTokens(): void | Promise<void>;
+}
+
+/** How a `401` triggers a token refresh: an HTTP endpoint, or a callback. */
+type OAuth2RefreshMechanism =
+  | {
+      /**
+       * URL called (POST) when a `401` triggers a token refresh. Exactly one
+       * of `refreshEndpoint` or `refresh` must be set.
+       * @default no default — required unless `refresh` is set
+       */
+      refreshEndpoint: string;
+      /**
+       * Builds the request body sent to `refreshEndpoint` from the current
+       * refresh token. When unset, a default payload shape is used.
+       * @default optional, unset means the client's default refresh body is sent
+       */
+      refreshPayload?: (refreshToken: string) => Record<string, unknown>;
+      refresh?: never;
+    }
+  | {
+      /**
+       * Callback refresh: bypasses HTTP entirely. Return the new tokens, or
+       * throw/reject to signal failure (handled the same way an HTTP
+       * refresh failure is). Use this when refresh logic lives in an SDK
+       * call, a BFF function, or anywhere that isn't "just POST a URL".
+       * Exactly one of `refreshEndpoint` or `refresh` must be set.
+       */
+      refresh: (currentRefreshToken: string) => Promise<OAuth2Tokens>;
+      refreshEndpoint?: never;
+      refreshPayload?: never;
+    };
+
+/** Where access/refresh tokens are read from and persisted to. */
+type OAuth2TokenSource =
+  | {
+      /**
+       * Returns the current access token (or `null`). Sync or async.
+       * @default no default — required unless `tokenStorage` is set
+       */
+      getAccessToken: () => string | null | Promise<string | null>;
+      /**
+       * Returns the current refresh token (or `null`), used to build the
+       * refresh request. Sync or async.
+       * @default no default — required unless `tokenStorage` is set
+       */
+      getRefreshToken: () => string | null | Promise<string | null>;
+      /**
+       * Called with the freshly issued tokens so they can be persisted. Sync
+       * or async.
+       * @default no default — required unless `tokenStorage` is set
+       */
+      onTokensRefreshed: (tokens: OAuth2Tokens) => void | Promise<void>;
+      tokenStorage?: never;
+    }
+  | {
+      /**
+       * Pluggable token persistence — derives `getAccessToken`/
+       * `getRefreshToken`/`onTokensRefreshed` from this adapter. Mutually
+       * exclusive with the manual triplet.
+       */
+      tokenStorage: TokenStorage;
+      getAccessToken?: never;
+      getRefreshToken?: never;
+      onTokensRefreshed?: never;
+    };
+
+/**
  * OAuth2 authentication with automatic refresh-on-401. On a `401` the client
- * calls `refreshEndpoint` once, retries the original request, and reports the
- * outcome via the callbacks below. Applies when `strategy` is `'oauth2'`.
+ * refreshes once (via `refreshEndpoint` or the `refresh` callback), retries
+ * the original request, and reports the outcome via the callbacks below.
+ * Applies when `strategy` is `'oauth2'`.
  *
  * @example
  * ```ts
@@ -151,40 +243,12 @@ export interface OAuth2Tokens {
  * }
  * ```
  */
-export interface OAuth2AuthConfig {
+export type OAuth2AuthConfig = {
   /**
    * Discriminant selecting this strategy.
    * @default no default — required
    */
   strategy: 'oauth2';
-  /**
-   * Returns the current access token (or `null`). Sync or async.
-   * @default no default — required
-   */
-  getAccessToken: () => string | null | Promise<string | null>;
-  /**
-   * Returns the current refresh token (or `null`), used to build the refresh
-   * request. Sync or async.
-   * @default no default — required
-   */
-  getRefreshToken: () => string | null | Promise<string | null>;
-  /**
-   * URL called (POST) when a `401` triggers a token refresh.
-   * @default no default — required
-   */
-  refreshEndpoint: string;
-  /**
-   * Builds the request body sent to `refreshEndpoint` from the current refresh
-   * token. When unset, a default payload shape is used.
-   * @default optional, unset means the client's default refresh body is sent
-   */
-  refreshPayload?: (refreshToken: string) => Record<string, unknown>;
-  /**
-   * Called with the freshly issued tokens so they can be persisted. Sync or
-   * async.
-   * @default no default — required
-   */
-  onTokensRefreshed: (tokens: OAuth2Tokens) => void | Promise<void>;
   /**
    * Called when the refresh attempt itself fails (e.g. refresh token expired),
    * letting the app log out or redirect. Sync or async.
@@ -198,7 +262,8 @@ export interface OAuth2AuthConfig {
    * @default 'queue'
    */
   concurrentRefreshStrategy?: 'queue' | 'race';
-}
+} & OAuth2RefreshMechanism &
+  OAuth2TokenSource;
 
 /**
  * Disables authentication entirely. Applies when `strategy` is `'none'`; this

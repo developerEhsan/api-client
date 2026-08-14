@@ -315,7 +315,15 @@ export function ProductDemo() {
         <a href="/server" className="text-indigo-600 hover:underline">
           /server
         </a>{' '}
-        for direct server-side usage.
+        for direct server-side usage,{' '}
+        <a href="/rate-limit" className="text-indigo-600 hover:underline">
+          /rate-limit
+        </a>{' '}
+        for RPC rate limiting, and{' '}
+        <a href="/environments" className="text-indigo-600 hover:underline">
+          /environments
+        </a>{' '}
+        for the edge-vs-node adapter downgrade.
       </p>
     </main>
   );
