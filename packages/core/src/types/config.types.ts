@@ -4,6 +4,8 @@
  * Merge precedence (highest first):
  *   per-call  ->  module  ->  global  ->  library defaults
  * All merges are deep merges.
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/configuration.md}
  */
 
 import type { ApiError } from '../errors/ApiError';
@@ -36,6 +38,7 @@ export interface RetryConfig {
    * Total number of attempts (including the first). `3` means one initial try
    * plus two retries.
    * @default 3
+   * @example `retry: { attempts: 5 }`
    */
   attempts?: number;
   /**
@@ -44,23 +47,27 @@ export interface RetryConfig {
    * - `'linear'` — `baseDelay * n`.
    * - `'fixed'` — always `baseDelay`.
    * @default 'exponential'
+   * @example `retry: { backoff: 'fixed' }`
    */
   backoff?: 'exponential' | 'linear' | 'fixed';
   /**
    * Base delay in milliseconds used by the backoff formula.
    * @default 500
+   * @example `retry: { baseDelay: 1000 }`
    */
   baseDelay?: number;
   /**
    * Upper bound in milliseconds applied to each computed delay and to any
    * server `Retry-After` value.
    * @default 30000
+   * @example `retry: { maxDelay: 10_000 }`
    */
   maxDelay?: number;
   /**
    * When `true`, applies full-jitter randomization to each delay to avoid a
    * thundering-herd of synchronized retries.
    * @default true
+   * @example `retry: { jitter: false }`
    */
   jitter?: boolean;
   /**
@@ -76,6 +83,7 @@ export interface RetryConfig {
   /**
    * Callback fired before each retry sleep.
    * @default optional, unset means no callback
+   * @example `retry: { onRetry: (attempt, error) => console.warn('retry', attempt, error) }`
    */
   onRetry?: (attempt: number, error: ApiError) => void;
 }
@@ -99,11 +107,13 @@ export interface QueueConfig {
   /**
    * Master switch for the request queue.
    * @default true
+   * @example `queue: { enabled: false }`
    */
   enabled?: boolean;
   /**
    * Maximum number of simultaneous in-flight requests.
    * @default 10
+   * @example `queue: { concurrency: 4 }`
    */
   concurrency?: number;
   /**
@@ -111,6 +121,7 @@ export interface QueueConfig {
    * - `'fifo'` — oldest queued request runs first.
    * - `'lifo'` — newest queued request runs first.
    * @default 'fifo'
+   * @example `queue: { priority: 'lifo' }`
    */
   priority?: 'fifo' | 'lifo';
 }
@@ -138,43 +149,51 @@ export interface HttpConfig {
    * @default auto-detected — 'axios' on Node when axios is installed, else
    * 'fetch'; edge/browser always 'fetch'; edge downgrades a requested 'axios'
    * to 'fetch' with a warning
+   * @example `http: { adapter: 'fetch' }`
    */
   adapter?: 'axios' | 'fetch' | HttpAdapterLike;
   /**
    * Per-attempt timeout in milliseconds, enforced via `AbortController`
    * (fetch has no native timeout).
    * @default 10000
+   * @example `http: { timeout: 8000 }`
    */
   timeout?: number;
   /**
    * Headers merged into every request.
    * @default optional, unset means no extra headers
+   * @example `http: { headers: { 'X-Client': 'petstore-web' } }`
    */
   headers?: Record<string, string>;
   /**
    * Retry policy (see {@link RetryConfig}).
    * @default optional, unset means the RetryConfig defaults apply
+   * @example `http: { retry: { attempts: 5 } }`
    */
   retry?: RetryConfig;
   /**
    * When `true`, in-flight identical requests are coalesced into a single
    * network call.
    * @default true
+   * @example `http: { deduplication: false }`
    */
   deduplication?: boolean;
   /**
    * HTTP methods eligible for deduplication.
    * @default ['GET']
+   * @example `http: { dedupeMethod: ['GET', 'HEAD'] }`
    */
   dedupeMethod?: string[];
   /**
    * Concurrency queue (see {@link QueueConfig}).
    * @default optional, unset means the QueueConfig defaults apply
+   * @example `http: { queue: { concurrency: 4 } }`
    */
   queue?: QueueConfig;
   /**
    * When set, responses larger than this many bytes are aborted.
    * @default optional, unset means unlimited
+   * @example `http: { maxResponseSize: 10_000_000 }`
    */
   maxResponseSize?: number;
 }
@@ -209,6 +228,7 @@ export interface ValidationConfig {
   /**
    * Master switch for response-body validation.
    * @default false
+   * @example `validation: { enabled: true }`
    */
   enabled?: boolean;
   /**
@@ -216,11 +236,13 @@ export interface ValidationConfig {
    * - `'strict'` — throw a `SchemaError`.
    * - `'loose'` — only emit a warning.
    * @default 'loose'
+   * @example `validation: { mode: 'strict' }`
    */
   mode?: 'strict' | 'loose';
   /**
    * Callback fired when the runtime schema differs from the generated one.
    * @default optional, unset means no drift callback
+   * @example `validation: { onDriftDetected: (diff) => console.warn('spec drift', diff) }`
    */
   onDriftDetected?: (diff: SchemaDiff) => void;
 }
@@ -244,12 +266,14 @@ export interface OpenApiConfig {
   /**
    * Filesystem path to the OpenAPI JSON, consumed by codegen.
    * @default optional, unset means no on-disk spec
+   * @example `openapi: { schemaPath: './openapi/petstore.json' }`
    */
   schemaPath?: string;
   /**
    * URL fetched in the background at runtime to power response validation and
    * drift detection; not bundled into the client.
    * @default optional, unset means no runtime fetch
+   * @example `openapi: { runtimeURL: 'https://petstore3.swagger.io/api/v3/openapi.json' }`
    */
   runtimeURL?: string;
   /**
@@ -259,11 +283,13 @@ export interface OpenApiConfig {
    * - `'auto'` — runtime if `runtimeURL` is present, else codegen.
    * @default effectively 'auto' — runtime loading happens whenever mode is not
    * 'codegen' and `runtimeURL` is set
+   * @example `openapi: { mode: 'codegen' }`
    */
   mode?: 'codegen' | 'runtime' | 'auto';
   /**
    * Response validation policy (see {@link ValidationConfig}).
    * @default optional, unset means the ValidationConfig defaults apply
+   * @example `openapi: { validation: { enabled: true } }`
    */
   validation?: ValidationConfig;
 }
@@ -284,6 +310,7 @@ export interface TenancyConfig {
   /**
    * Header the resolved tenant id is sent under.
    * @default 'X-Tenant-ID'
+   * @example `tenancy: { headerName: 'X-Org-ID' }`
    */
   headerName?: string;
   /**
@@ -317,12 +344,14 @@ export interface CancellationConfig {
    * Window in milliseconds within which a newer identical request auto-cancels
    * the previous in-flight one. `0` disables this.
    * @default 0
+   * @example `cancellation: { dedupeWindow: 300 }`
    */
   dedupeWindow?: number;
   /**
    * Hint consumed by framework integrations to cancel on unmount; core does
    * not enforce it.
    * @default optional, unset means integrations decide
+   * @example `cancellation: { cancelOnUnmount: true }`
    */
   cancelOnUnmount?: boolean;
 }
@@ -347,17 +376,20 @@ export interface DevConfig {
    * - `true` — concise per-request/response logs.
    * - `'verbose'` — full request/response detail.
    * @default false
+   * @example `dev: { logging: 'verbose' }`
    */
   logging?: boolean | 'verbose';
   /**
    * Convenience toggle enabling response validation during development.
    * @default false
+   * @example `dev: { validateResponses: true }`
    */
   validateResponses?: boolean;
   /**
    * Polling interval in milliseconds to re-fetch the runtime schema and run
    * drift detection.
    * @default optional, unset means no polling
+   * @example `dev: { schemaRefreshInterval: 30_000 }`
    */
   schemaRefreshInterval?: number;
 }
@@ -382,6 +414,7 @@ export interface LifecycleHooks {
    * set at multiple layers the hooks chain (each receives the previous output).
    * May be async.
    * @default optional, unset means no hook
+   * @example `hooks: { onRequest: (req) => ({ ...req, headers: { ...req.headers, 'X-Trace': '1' } }) }`
    */
   // biome-ignore lint/suspicious/noConfusingVoidType: `void` intentionally lets a hook omit a return to pass the request through unchanged.
   onRequest?: (request: ApiRequest) => ApiRequest | void | Promise<ApiRequest | void>;
@@ -390,6 +423,7 @@ export interface LifecycleHooks {
    * modified response, or `void`/`undefined` to pass it through unchanged.
    * Chains across layers like {@link LifecycleHooks.onRequest}. May be async.
    * @default optional, unset means no hook
+   * @example `hooks: { onResponse: (res) => res } // pass-through`
    */
   onResponse?: <T>(
     response: ApiResponse<T>,
@@ -398,21 +432,25 @@ export interface LifecycleHooks {
   /**
    * Observe every thrown error; cannot suppress it. May be async.
    * @default optional, unset means no hook
+   * @example `hooks: { onError: (err) => reportToSentry(err) }`
    */
   onError?: (error: ApiError) => void | Promise<void>;
   /**
    * Fires on each retry attempt.
    * @default optional, unset means no hook
+   * @example `hooks: { onRetry: (attempt, error) => console.warn('retry', attempt, error) }`
    */
   onRetry?: (attempt: number, error: ApiError) => void;
   /**
    * Fires when a request is served from cache.
    * @default optional, unset means no hook
+   * @example `hooks: { onCacheHit: (key) => console.debug('cache hit', key) }`
    */
   onCacheHit?: (key: string, entry: import('./cache.types').CacheEntry) => void;
   /**
    * Fires when a cache lookup misses.
    * @default optional, unset means no hook
+   * @example `hooks: { onCacheMiss: (key) => console.debug('cache miss', key) }`
    */
   onCacheMiss?: (key: string) => void;
   /**
@@ -420,6 +458,7 @@ export interface LifecycleHooks {
    * before the response is returned to the caller. Observational; cannot alter
    * the response (use `onResponse` to transform). May be async.
    * @default optional, unset means no hook
+   * @example `hooks: { onSuccess: (res) => console.debug('ok', res.status) }`
    */
   onSuccess?: <T>(response: ApiResponse<T>) => void | Promise<void>;
   /**
@@ -428,6 +467,7 @@ export interface LifecycleHooks {
    * `response`/`error` is set on success/failure; both are `undefined` on
    * cancellation. May be async.
    * @default optional, unset means no hook
+   * @example `hooks: { onSettled: (res, err) => console.debug('settled', res, err) }`
    */
   onSettled?: <T>(
     response: ApiResponse<T> | undefined,
@@ -443,6 +483,7 @@ export interface ModulesConfig {
   /**
    * When `true`, generated auto-modules are built from the spec.
    * @default governed by createClient
+   * @example `modules: { auto: false }`
    */
   auto?: boolean;
   /**
@@ -470,64 +511,76 @@ export interface GlobalConfig {
   /**
    * Root URL all module/spec paths are appended to.
    * @default required unless `activeEnvironment` resolves one
+   * @example `{ baseURL: 'https://petstore3.swagger.io/api/v3' }`
    */
   baseURL: string;
   /**
    * Named `baseURL` map selectable via `activeEnvironment`.
    * @default optional, unset means only `baseURL` is used
+   * @example `{ environments: { staging: 'https://staging.example.com', prod: 'https://api.example.com' } }`
    */
   environments?: Record<string, string>;
   /**
    * Key into `environments` whose URL overrides `baseURL`; errors if the key
    * is missing.
    * @default optional, unset means `baseURL` is used as-is
+   * @example `{ activeEnvironment: 'staging' }`
    */
   activeEnvironment?: string;
 
   /**
    * OpenAPI wiring and validation policy (see {@link OpenApiConfig}).
    * @default no default — required
+   * @example `{ openapi: { runtimeURL: 'https://petstore3.swagger.io/api/v3/openapi.json' } }`
    */
   openapi: OpenApiConfig;
 
   /**
    * Transport configuration (see {@link HttpConfig}).
    * @default optional, unset means the HttpConfig defaults apply
+   * @example `{ http: { timeout: 8000 } }`
    */
   http?: HttpConfig;
   /**
    * Authentication strategy (see {@link AuthConfig}).
    * @default optional, unset means no authentication ('none')
+   * @example `{ auth: { strategy: 'bearer', getToken: () => localStorage.getItem('token') } }`
    */
   auth?: AuthConfig;
   /**
    * Response cache configuration (see {@link CacheConfig}).
    * @default optional, unset means the CacheConfig defaults apply
+   * @example `{ cache: { ttl: 60_000 } }`
    */
   cache?: CacheConfig;
   /**
    * Cancellation behavior (see {@link CancellationConfig}).
    * @default optional, unset means the CancellationConfig defaults apply
+   * @example `{ cancellation: { dedupeWindow: 300 } }`
    */
   cancellation?: CancellationConfig;
   /**
    * Multi-tenancy configuration (see {@link TenancyConfig}).
    * @default optional, unset means no tenant header
+   * @example `{ tenancy: { headerName: 'X-Tenant-ID' } }`
    */
   tenancy?: TenancyConfig;
   /**
    * Module registry (see {@link ModulesConfig}).
    * @default optional, unset means generated modules only
+   * @example `{ modules: { auto: true } }`
    */
   modules?: ModulesConfig;
   /**
    * Development-time toggles (see {@link DevConfig}).
    * @default optional, unset means the DevConfig defaults apply
+   * @example `{ dev: { logging: true } }`
    */
   dev?: DevConfig;
   /**
    * Global lifecycle hooks (see {@link LifecycleHooks}).
    * @default optional, unset means no hooks
+   * @example `{ hooks: { onError: (err) => reportToSentry(err) } }`
    */
   hooks?: LifecycleHooks;
 
@@ -536,6 +589,7 @@ export interface GlobalConfig {
    * `{ success: true, data } | { success: false, error }` union instead of
    * throwing (aborts still throw).
    * @default false
+   * @example `{ safeMode: true }`
    */
   safeMode?: boolean;
 }
@@ -559,41 +613,49 @@ export interface ModuleConfig {
   /**
    * Overrides the base URL for this module.
    * @default optional, unset means inherit the global `baseURL`
+   * @example `{ baseURL: 'https://uploads.example.com' }`
    */
   baseURL?: string;
   /**
    * Overrides the per-attempt timeout (ms) for this module.
    * @default optional, unset means inherit the global timeout
+   * @example `{ timeout: 15_000 }`
    */
   timeout?: number;
   /**
    * Headers merged over global headers for this module.
    * @default optional, unset means inherit the global headers
+   * @example `{ headers: { 'X-Module': 'pet' } }`
    */
   headers?: Record<string, string>;
   /**
    * Overrides the auth strategy for this module.
    * @default optional, unset means inherit the global auth
+   * @example `{ auth: { strategy: 'apiKey', getKey: () => process.env.MODULE_KEY } }`
    */
   auth?: Partial<AuthConfig>;
   /**
    * Overrides cache settings for this module.
    * @default optional, unset means inherit the global cache
+   * @example `{ cache: { ttl: 5_000 } }`
    */
   cache?: Partial<CacheConfig>;
   /**
    * Overrides retry settings for this module.
    * @default optional, unset means inherit the global retry
+   * @example `{ retry: { attempts: 2 } }`
    */
   retry?: Partial<RetryConfig>;
   /**
    * Overrides tenancy settings for this module.
    * @default optional, unset means inherit the global tenancy
+   * @example `{ tenancy: { headerName: 'X-Module-Tenant' } }`
    */
   tenancy?: Partial<TenancyConfig>;
   /**
    * Overrides validation settings for this module.
    * @default optional, unset means inherit the global validation
+   * @example `{ validation: { enabled: true } }`
    */
   validation?: Partial<ValidationConfig>;
   /**
@@ -602,6 +664,7 @@ export interface ModuleConfig {
    * (`onRequest`/`onResponse`) chain their return values. They do not replace
    * the global hooks. See {@link LifecycleHooks}.
    * @default optional, unset means only global (and per-call) hooks run
+   * @example `{ hooks: { onError: (err) => console.error('[pet]', err) } }`
    */
   hooks?: LifecycleHooks;
 }
@@ -625,47 +688,84 @@ export interface PerCallConfig {
   /**
    * `AbortSignal` used to cancel this call.
    * @default optional, unset means the call is not externally cancelable
+   * @example `{ signal: controller.signal }`
    */
   signal?: AbortSignal;
   /**
    * Headers merged over global/module headers for this call.
    * @default optional, unset means inherit global/module headers
+   * @example `{ headers: { 'X-Request-Id': crypto.randomUUID() } }`
    */
   headers?: Record<string, string>;
   /**
    * Highest-precedence tenant id for this call.
    * @default optional, unset means the tenancy resolver/ambient tenant applies
+   * @example `{ tenantId: 'acme' }`
    */
   tenantId?: string;
   /**
    * Cache overrides for this call. `bust` forces a fresh fetch and overwrites
    * the cached entry.
    * @default optional, unset means inherit global/module cache
+   * @example `{ cache: { bust: true } }`
    */
-  cache?: { enabled?: boolean; ttl?: number; bust?: boolean };
+  cache?: {
+    enabled?: boolean;
+    ttl?: number;
+    bust?: boolean;
+    /**
+     * Tags this specific call's cache entry is filed under, in addition to
+     * any tags the method descriptor declares (union, not override). Tags
+     * are exact-match labels used only for invalidation, never for gating
+     * read access — see `invalidateTags`.
+     * @default optional, unset means only descriptor-level tags (if any) apply
+     * @example `{ cache: { tags: ['pet:1'] } }`
+     */
+    tags?: string[];
+    /**
+     * Tags to invalidate, across every auth scope in this process, after
+     * this specific call succeeds. Unions with descriptor-level
+     * `invalidatesTags`.
+     * @default optional, unset means only descriptor-level invalidation (if any) applies
+     * @example `{ cache: { invalidatesTags: ['pet:1'] } }`
+     */
+    invalidatesTags?: string[];
+    /**
+     * Extra cache-key dimensions for this specific call, unioned with any
+     * the method descriptor computes (spec 10). See `CacheConfig.cacheKeyParts`.
+     * @default optional, unset means only descriptor-level parts (if any) apply
+     * @example `{ cache: { cacheKeyParts: { locale: 'en-US' } } }`
+     */
+    cacheKeyParts?: Record<string, string>;
+  };
   /**
    * Retry override for this call (attempt count only).
    * @default optional, unset means inherit global/module retry
+   * @example `{ retry: { attempts: 1 } }`
    */
   retry?: { attempts?: number };
   /**
    * Highest-precedence per-attempt timeout in milliseconds.
    * @default falls back to module/global/10000
+   * @example `{ timeout: 3000 }`
    */
   timeout?: number;
   /**
    * When `true`, bypasses the auth interceptor for this call.
    * @default false
+   * @example `{ skipAuth: true }`
    */
   skipAuth?: boolean;
   /**
    * When `true`, bypasses in-flight deduplication for this call.
    * @default false
+   * @example `{ skipDedup: true }`
    */
   skipDedup?: boolean;
   /**
    * How the response body is parsed.
    * @default 'json'
+   * @example `{ responseType: 'blob' }`
    */
   responseType?: ResponseType;
   /**
@@ -673,6 +773,7 @@ export interface PerCallConfig {
    * immediately regardless of the configured concurrency limit). When omitted,
    * the global queue setting applies.
    * @default inherit the global `http.queue.enabled`
+   * @example `{ queue: false }`
    */
   queue?: boolean;
   /**
@@ -680,6 +781,7 @@ export interface PerCallConfig {
    * module hooks (all fire, per-call last; transforming hooks chain). See
    * {@link LifecycleHooks}.
    * @default optional, unset means only global/module hooks run
+   * @example `{ hooks: { onSuccess: (res) => console.log('done', res.status) } }`
    */
   hooks?: LifecycleHooks;
 }
@@ -694,7 +796,7 @@ export interface ResolvedRequestConfig {
   headers: Record<string, string>;
   auth: AuthConfig;
   cache: Required<Pick<CacheConfig, 'enabled' | 'ttl' | 'strategy' | 'maxSize'>> &
-    CacheConfig & { bust?: boolean };
+    CacheConfig & { bust?: boolean; tags?: string[]; invalidatesTags?: string[] };
   retry: Required<Pick<RetryConfig, 'attempts' | 'backoff' | 'baseDelay' | 'maxDelay' | 'jitter'>> &
     RetryConfig;
   tenancy: TenancyConfig;

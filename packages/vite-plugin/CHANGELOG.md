@@ -1,5 +1,12 @@
 # @developerehsan/api-client-vite
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies [[`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346), [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346)]:
+  - @developerehsan/api-client@1.1.0
+
 ## 1.0.0
 
 ### Major Changes

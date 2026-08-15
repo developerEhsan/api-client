@@ -29,13 +29,15 @@ Open [http://localhost:3000](http://localhost:3000) and keep the **Network tab**
 open — the whole point is that client-component calls show only a same-origin
 `POST` carrying `{ module, method, args }`, never `dummyjson.com` or any path.
 
-## The three routes
+## The routes
 
-| Route     | File                                             | What it shows                                                          |
-| --------- | ------------------------------------------------ | ---------------------------------------------------------------------- |
-| `/`       | [`app/ProductDemo.tsx`](app/ProductDemo.tsx)     | The bridge from a **client component** via a Next.js **Server Action** |
-| `/http`   | [`app/http/HttpDemo.tsx`](app/http/HttpDemo.tsx) | The **same** bridge via the framework-agnostic `POST /api/rpc` route   |
-| `/server` | [`app/server/page.tsx`](app/server/page.tsx)     | **Direct** server-side usage (RSC) — no bridge needed, nothing leaks   |
+| Route          | File                                                            | What it shows                                                                            |
+| -------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `/`            | [`app/ProductDemo.tsx`](app/ProductDemo.tsx)                    | The bridge from a **client component** via a Next.js **Server Action**                    |
+| `/http`        | [`app/http/HttpDemo.tsx`](app/http/HttpDemo.tsx)                | The **same** bridge via the framework-agnostic `POST /api/rpc` route                      |
+| `/server`      | [`app/server/page.tsx`](app/server/page.tsx)                    | **Direct** server-side usage (RSC) — no bridge needed, nothing leaks                       |
+| `/rate-limit`  | [`app/rate-limit/RateLimitDemo.tsx`](app/rate-limit/RateLimitDemo.tsx) | [RPC rate limiting](../../docs/rpc-rate-limiting.md) — a dedicated 3-calls/10s bridge, client-visible 429 |
+| `/environments`| [`app/environments/EnvironmentDemo.tsx`](app/environments/EnvironmentDemo.tsx) | [Environment detection](../../docs/environments.md) — Node vs Edge, the Axios→fetch adapter downgrade |
 
 ## How it fits together
 
@@ -99,16 +101,26 @@ See the full guarantee table in
 3. Toggle **Become editor**, then **Add a product** — now allowed.
 4. Click **Fetch #1, #2, #3 together** and watch the Network tab: **one** POST.
 5. Visit `/http` for the `httpTransport` variant and `/server` for direct RSC usage.
+6. Visit `/rate-limit` and click **Fire 5 calls** — a dedicated bridge allows
+   only 3 calls/10s, so calls #4-5 come back as a 429 `rate_limited` `ApiError`
+   (see [`docs/rpc-rate-limiting.md`](../../docs/rpc-rate-limiting.md)).
+7. Visit `/environments` and click the button — calls `/api/env-node` and
+   `/api/env-edge` side by side and reports each route's detected environment
+   and the adapter it actually ended up using (see
+   [`docs/environments.md`](../../docs/environments.md)).
 
 ## Regenerating types
 
-The spec lives at [`lib/api/openapi.json`](lib/api/openapi.json):
+The spec lives at [`lib/api/openapi.json`](lib/api/openapi.json). Regenerate
+`lib/api/types/generated/` from it with:
 
 ```bash
-npx @developerehsan/api-client generate \
-  --input ./lib/api/openapi.json --output ./lib/api/types/generated
+pnpm --filter nextjs generate
 ```
 
-This also emits `api.rpc.ts` — the **paths-stripped** descriptor the browser
-bridge + TanStack integration use so no backend path ships to the client.
+(equivalent to `npx developerEhsan-api-client generate --input
+./lib/api/openapi.json --output ./lib/api/types/generated`, wired as the
+`generate` script in this package's `package.json`). This also emits
+`api.rpc.ts` — the **paths-stripped** descriptor the browser bridge +
+TanStack integration use so no backend path ships to the client.
 </content>

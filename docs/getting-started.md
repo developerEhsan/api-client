@@ -81,14 +81,17 @@ cd examples/react-vite && pnpm dev
 | Function | When to use |
 | --- | --- |
 | `createClient(config)` | Quick start, hand-written modules, no OpenAPI spec needed |
-| `createTypedClient<OperationsMap>()(config, generatedModules)` | Full end-to-end type-safety from an OpenAPI spec (see [codegen](./codegen.md)) |
+| `createTypedClient<Ops>()(config, descriptors)` | Full end-to-end type-safety — `Ops` from codegen ([codegen](./codegen.md)) **or hand-written** ([manual types](./manual-types.md)) |
 
-The examples use `createTypedClient` because they generate types from a spec. The
+The examples use `createTypedClient` with codegen because they generate types
+from a spec — but codegen isn't required for full type-safety. No OpenAPI
+spec yet? See [full type-safety without codegen](./manual-types.md). The
 [modules & methods](./modules-and-methods.md) page covers both.
 
 ## Where to next
 
 - [Mental model](./mental-model.md) — understand the pipeline before going deeper
 - [Modules & methods](./modules-and-methods.md) — how to declare endpoints
+- [Full type-safety without codegen](./manual-types.md) — hand-write `Ops`, same guarantees
 - [Configuration reference](./configuration.md) — every option
 </content>

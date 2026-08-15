@@ -18,6 +18,16 @@ const RESERVED_MEMBERS = new Set<string>([
   'off',
 ]);
 
+/**
+ * Optional banner metadata for {@link emitModules}/{@link emitRpcModules} —
+ * both are pure functions, so this is the only way to stamp generation
+ * provenance into the emitted file's header comment.
+ *
+ * @example
+ * const source = emitModules(ast, { generatedAt: new Date().toISOString(), sourceHash: hash })
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/codegen.md}
+ */
 export interface EmitModulesOptions {
   generatedAt?: string;
   sourceHash?: string;

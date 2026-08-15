@@ -9,6 +9,18 @@ function getGlobal(key: string): unknown {
   return (globalThis as Record<string, unknown>)[key];
 }
 
+/**
+ * True when both `window` and `document` are present. Deliberately NOT
+ * memoized (unlike {@link detectEnvironment}) so callers that need a
+ * live/dynamic check — e.g. `utilities/serverOnly.ts`'s dev-time guard,
+ * which must reflect the CURRENT global state at call time, not whatever
+ * was true the first time any code in the process called
+ * `detectEnvironment()` — get an accurate answer every time.
+ */
+export function hasDomGlobals(): boolean {
+  return getGlobal('window') !== undefined && getGlobal('document') !== undefined;
+}
+
 /** True when the current runtime is a known edge runtime (Cloudflare, Vercel Edge). */
 function isEdgeRuntime(): boolean {
   if (getGlobal('EdgeRuntime') !== undefined) return true;
@@ -54,9 +66,8 @@ function isNextServer(): boolean {
 export function detectEnvironment(): DetectedEnvironment {
   if (memo !== undefined) return memo;
 
-  const hasWindow = getGlobal('window') !== undefined;
   const hasDocument = getGlobal('document') !== undefined;
-  const hasDom = hasWindow && hasDocument;
+  const hasDom = hasDomGlobals();
   const hasFetch = typeof getGlobal('fetch') === 'function';
   const edge = isEdgeRuntime();
   const node = hasNodeProcess();

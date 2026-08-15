@@ -1,9 +1,10 @@
 /**
  * RPC bridge tests. Each `S#` maps to a threat in the design's security table.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../errors/ApiError';
 import { AuthError } from '../errors/AuthError';
+import { ConfigurationError } from '../errors/ConfigurationError';
 import { createRpcHandler } from './createRpcHandler';
 import { createRpcRouteHandler } from './routeHandler';
 
@@ -261,6 +262,38 @@ describe('createRpcHandler', () => {
       h.handle({ module: 'pet', method: 'whoAmI', args: [] }, { user: 'bob' }),
     ]);
     expect(new Set(seen)).toEqual(new Set(['alice', 'bob']));
+  });
+
+  describe('S17: enforceServerOnly (spec 06)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('throws immediately when constructed in a simulated browser context', () => {
+      vi.stubGlobal('window', {});
+      vi.stubGlobal('document', {});
+      const { api } = makeApi();
+      expect(() => createRpcHandler(api, { expose: { pet: ['getPetById'] } })).toThrow(
+        ConfigurationError,
+      );
+    });
+
+    it('enforceServerOnly: false suppresses the throw', () => {
+      vi.stubGlobal('window', {});
+      vi.stubGlobal('document', {});
+      const { api } = makeApi();
+      expect(() =>
+        createRpcHandler(api, {
+          expose: { pet: ['getPetById'] },
+          enforceServerOnly: false,
+        }),
+      ).not.toThrow();
+    });
+
+    it('does not throw in a normal (non-browser) test environment', () => {
+      const { api } = makeApi();
+      expect(() => createRpcHandler(api, { expose: { pet: ['getPetById'] } })).not.toThrow();
+    });
   });
 });
 

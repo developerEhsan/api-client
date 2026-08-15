@@ -1,5 +1,41 @@
 # @developerehsan/api-client
 
+## 1.1.0
+
+### Minor Changes
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Give the IndexedDB and Redis cache stores adapter-specific config: IndexedDB gains `version`, `onQuotaExceeded`, and proactive `maxEntries` eviction; Redis gains a real `clear()` (opt-in via `scanKeys`, namespace-safe) and a custom `serializer`. Both gain a shared `onStoreError` diagnostic hook (error + op/key only, never cached data).
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Add a grab-bag of caching hardening features:
+
+  - Negative caching (`cache.cacheableStatuses`/`negativeTtl`) for error statuses like 404.
+  - ETag/`If-None-Match` conditional revalidation — automatic once a response captures an `ETag`.
+  - `client.cache.getStats()` — aggregate hit/miss/hitRate metrics.
+  - A circuit breaker for a failing persistent (L2) store (`cache.circuitBreaker`), observable via `cache.onStoreError`.
+  - At-rest encryption for IndexedDB (`createIndexedDbStore({ encrypt })`) — bring your own cipher, no default key management.
+  - Schema-version cache busting: a cached entry is invalidated automatically once the runtime OpenAPI schema hash changes (e.g. after a deploy).
+  - `client.cache.preview(pattern)` — dry-run a glob invalidation before running it for real.
+
+  All are opt-in / additive; default behavior is unchanged.
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Add cross-instance cache invalidation via Redis pub/sub: `createRedisStore(client, { crossInstance: true })` broadcasts tag/key/clear invalidations to sibling server instances (opt-in, off by default). Fixes stale cache reads when a mutation lands on one instance behind a load balancer but the stale GET was cached on another.
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Add `cache.cacheKeyParts` — extra cache-key dimensions folded into the built-in tenant/auth-fingerprint scoping, settable per auto-method descriptor (computed from call args) or statically at the module/global/per-call layer. Safer than `keyResolver` for the common "add one more thing to the scope" case (e.g. an admin viewing "as" a target user, or a multi-workspace dashboard) since it can only add dimensions, never drop the existing tenant/auth isolation. A descriptor's `cacheKeyParts(args)` throwing fails closed (disables caching for that call). Also fixes a pre-existing gap where `cache.keyResolver` was declared on `CacheConfig` but never actually wired into the request pipeline.
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Add `createFileSystemStore` — a Node-only, disk-backed `PersistentCacheStore` (the `.next/cache` / nginx `proxy_cache` shape) for long-running server processes that want to trade RAM for disk and survive restarts. Cache keys are SHA-256 hashed into fixed-length filenames (no path traversal), writes are atomic (write-then-rename), and it accepts the same `onStoreError`/`maxSizeBytes`/`encrypt` options as the other adapters. Not for serverless/edge; does not solve cross-instance staleness (use Redis `crossInstance` for that).
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Add memory-aware caching for constrained hosts: `cache.maxSizeBytes` (approximate byte cap alongside the existing entry-count `maxSize`), `cache.mode` (`'layered'` default, `'l1-only'`, `'l2-only'` with a tiny bounded shadow L1), and a Node-only opt-in `cache.memoryPressure` guard that proactively evicts before RSS crosses a threshold.
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Add a callback alternative to endpoint-based OAuth2 refresh (`refresh: (refreshToken) => Promise<OAuth2Tokens>`, for refresh logic that isn't "just POST a URL") and pluggable `tokenStorage` (mirrors `PersistentCacheStore`'s adapter pattern; ships `createMemoryTokenStorage`/`createLocalStorageTokenStorage`). Both are mutually exclusive with the existing `refreshEndpoint`/manual-getters shape, enforced at the type level and defense-in-depth at construction time.
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Add a dev-time server-only guard: `createRpcHandler` now throws immediately if constructed in a browser context (`enforceServerOnly`, on by default), and `defineModule({ serverOnly: true, ... })` does the same for your own server-only modules. Both are defense-in-depth on top of the existing `scripts/check-browser-bundle.mjs` CI check, which remains authoritative.
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Add tag-based cache invalidation: `cacheTags`/`invalidatesTags` on auto-method descriptors and `cache.tags`/`cache.invalidatesTags` on per-call config, plus `client.cache.invalidateTags(tags)`. A mutation's `invalidatesTags` now clears every cached copy of a tagged resource in one process, regardless of which auth scope cached it — fixing stale GETs after a mutation and same-VM cross-user staleness.
+
+### Patch Changes
+
+- [#27](https://github.com/developerEhsan/api-client/pull/27) [`ed369db`](https://github.com/developerEhsan/api-client/commit/ed369db8f57d8460021a75b3e32ddbb67d086346) Thanks [@developerEhsan](https://github.com/developerEhsan)! - Document and type-test full type-safety without codegen: `createTypedClient<Ops>()` already accepts a hand-written `Ops` interface with the exact shape codegen emits (`{ params, query, body, response }` per operation) — see `docs/manual-types.md`.
+
 ## 1.0.0
 
 ### Major Changes

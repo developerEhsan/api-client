@@ -5,6 +5,16 @@
  */
 import type { OperationNode, SchemaAST, TypeNode } from '../types/openapi.types';
 
+/**
+ * The outcome of validating a value against a {@link TypeNode}: whether it
+ * matched, and a flat list of human-readable error paths/reasons when it
+ * didn't.
+ *
+ * @example
+ * const result: ValidationResult = { valid: false, errors: ['$.id: expected string, got number'] }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/schema-validation.md}
+ */
 export interface ValidationResult {
   valid: boolean;
   errors: string[];

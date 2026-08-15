@@ -75,7 +75,13 @@ export type {
   OAuth2Tokens,
   AuthStrategyName,
   AuthContribution,
+  TokenStorage,
 } from './types/auth.types';
+export {
+  createMemoryTokenStorage,
+  createLocalStorageTokenStorage,
+} from './auth/tokenStorage';
+export type { LocalStorageTokenStorageOptions } from './auth/tokenStorage';
 
 // --- Runtime schema (validation & drift) ---
 export { createSchemaCache } from './runtime/schemaCache';

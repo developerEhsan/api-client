@@ -149,11 +149,50 @@ export interface ModuleRequestSpec {
   pathParams?: Record<string, string | number>;
   query?: Record<string, unknown>;
   body?: unknown;
+  /**
+   * Tags this response is cached under, eagerly resolved from the method
+   * descriptor's `cacheTags(args)` before dispatch (spec 01). Unions with
+   * `PerCallConfig.cache.tags`.
+   */
+  cacheTags?: string[];
+  /**
+   * Resolves the tags to invalidate (across every auth scope) after this
+   * call succeeds, given the response body — the method descriptor's
+   * `invalidatesTags(args, result)` closed over its `args`. Unions with
+   * `PerCallConfig.cache.invalidatesTags`.
+   */
+  resolveInvalidatesTags?: (result: unknown) => string[];
+  /**
+   * Extra cache-key dimensions, eagerly resolved from the method
+   * descriptor's `cacheKeyParts(args)` before dispatch (spec 10). Unions
+   * with `PerCallConfig.cache.cacheKeyParts`.
+   */
+  cacheKeyParts?: Record<string, string>;
+  /**
+   * Set when the descriptor's `cacheKeyParts(args)` threw while resolving —
+   * fail closed (spec 10): the request disables caching entirely for this
+   * call rather than silently omitting the extra scoping, which could put
+   * two logically distinct responses under a would-be-colliding key.
+   */
+  cacheKeyPartsFailed?: boolean;
 }
 
 /** A single method on a module. */
 export type ModuleMethod = (this: void, ...args: never[]) => Promise<unknown>;
 
+/**
+ * Shape of the `methods` map passed to `defineModule`/`ModuleDefinition`: each
+ * method takes the {@link ModuleContext} first, then any custom arguments.
+ *
+ * @example
+ * const methods: ModuleMethods = {
+ *   async createInvoice(ctx, input: { total: number }) {
+ *     return ctx.request<{ id: string }>({ method: 'POST', path: '/invoices', body: input });
+ *   },
+ * }
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/manual-types.md}
+ */
 export type ModuleMethods = Record<
   string,
   (ctx: ModuleContext, ...args: never[]) => Promise<unknown>
@@ -171,6 +210,14 @@ export interface ModuleDefinition<M extends ModuleMethods = ModuleMethods> {
   extends?: 'auto';
   config?: ModuleConfig;
   methods: M;
+  /**
+   * When `true`, this module throws immediately if evaluated in a browser
+   * context (spec 06) — checked once at module construction, not per call.
+   * Use for modules wrapping server-only concerns (direct DB access,
+   * secrets, internal services) that must never run client-side.
+   * @default false
+   */
+  serverOnly?: boolean;
 }
 
 /** Strips the leading `ModuleContext` param from an exposed method. */

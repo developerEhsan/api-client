@@ -4,6 +4,15 @@
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS';
 
+/**
+ * How an adapter should parse the response body. Defaults to `'json'` when a
+ * per-call config doesn't set it.
+ *
+ * @example
+ * const { data } = await api.files.download({ id: '1' }, { responseType: 'blob' })
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/environments.md}
+ */
 export type ResponseType = 'json' | 'blob' | 'text' | 'arraybuffer';
 
 /**

@@ -54,12 +54,6 @@ async function parseBody(response: Response, responseType: ResponseType): Promis
   }
 }
 
-/**
- * Create an {@link HttpAdapter} backed by the global `fetch`.
- *
- * Does not throw on non-2xx responses — those resolve as an
- * {@link AdapterResponse}. Genuine network failures reject (fetch rejects).
- */
 /** Build the fetch `RequestInit` (shared by send + stream). */
 function buildInit(request: ApiRequest): RequestInit {
   const headers: Record<string, string> = { ...request.headers };
@@ -85,6 +79,28 @@ function buildInit(request: ApiRequest): RequestInit {
   return init;
 }
 
+/**
+ * Create an {@link HttpAdapter} backed by the global `fetch`. Edge-safe (no
+ * Node imports); used automatically when environment detection downgrades
+ * axios to fetch, or directly if you want to force fetch everywhere.
+ *
+ * Does not throw on non-2xx responses — those resolve as an
+ * {@link AdapterResponse}. Genuine network failures (e.g. DNS, offline)
+ * reject, matching `fetch`'s own rejection behavior.
+ *
+ * @example
+ * import { createFetchAdapter } from '@developerehsan/api-client'
+ *
+ * const adapter = createFetchAdapter();
+ * const response = await adapter.send({
+ *   url: 'https://petstore3.swagger.io/api/v3/pet/1',
+ *   method: 'GET',
+ *   headers: {},
+ * });
+ * console.log(response.status, response.data);
+ *
+ * @see {@link https://github.com/developerEhsan/api-client/blob/master/docs/environments.md}
+ */
 export function createFetchAdapter(): HttpAdapter {
   return {
     async send(request: ApiRequest): Promise<AdapterResponse> {
