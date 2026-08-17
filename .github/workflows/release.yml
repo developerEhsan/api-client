@@ -40,7 +40,7 @@ jobs:
       # When there are pending changesets → opens/updates a "Version Packages" PR.
       # When that PR is merged (no pending changesets) → runs `publish` to npm.
       - name: Create Release PR or Publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           version: pnpm changeset:version
           publish: pnpm changeset:publish
