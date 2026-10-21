@@ -9,6 +9,7 @@
  */
 
 import {
+  RPC_MULTIPART_ENVELOPE,
   type RpcBatchRequest,
   type RpcCall,
   type RpcResponse,
@@ -80,6 +81,44 @@ export interface HttpTransportOptions {
  * )
  * await api.pet.getPetById({ petId: 1 })
  */
+/** True for a value that must travel as its own multipart part, not as JSON. */
+function isBinaryArg(value: unknown): value is Blob {
+  return typeof Blob !== 'undefined' && value instanceof Blob;
+}
+
+/**
+ * Walk a call's args, pulling every `File`/`Blob` out into its own multipart
+ * part and leaving a `{ __rpcFile }` placeholder behind. Returns `null` when
+ * there was nothing binary to extract, so the plain JSON path is unchanged.
+ */
+function toMultipart(call: RpcCall): FormData | null {
+  if (typeof FormData === 'undefined') return null;
+  const form = new FormData();
+  let found = 0;
+
+  const extract = (value: unknown): unknown => {
+    if (isBinaryArg(value)) {
+      const field = `__file${found++}`;
+      form.append(field, value);
+      return { __rpcFile: field };
+    }
+    if (Array.isArray(value)) return value.map(extract);
+    // Only plain objects are walked: a Date/Map/class instance would not
+    // survive JSON round-tripping as itself anyway.
+    if (typeof value === 'object' && value !== null && value.constructor === Object) {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = extract(v);
+      return out;
+    }
+    return value;
+  };
+
+  const envelope = { ...call, args: call.args.map(extract) };
+  if (found === 0) return null;
+  form.append(RPC_MULTIPART_ENVELOPE, JSON.stringify(envelope));
+  return form;
+}
+
 export function httpTransport(options: HttpTransportOptions): Transport {
   const { endpoint, headers } = options;
   const doFetch = options.fetch ?? globalThis.fetch;
@@ -95,16 +134,29 @@ export function httpTransport(options: HttpTransportOptions): Transport {
     },
   });
 
-  const post = async (payload: unknown): Promise<{ status: number; body: unknown }> => {
+  const post = async (
+    payload: unknown,
+    form?: FormData | null,
+  ): Promise<{ status: number; body: unknown }> => {
     if (typeof doFetch !== 'function') {
       throw new Error('httpTransport: no fetch implementation available.');
     }
     const res = await doFetch(endpoint, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...headers },
-      body: JSON.stringify(payload),
+      // A multipart body sets its own Content-Type (it needs the generated
+      // boundary), so the JSON header is omitted for that path only.
+      headers: form ? { ...headers } : { 'content-type': 'application/json', ...headers },
+      body: form ?? JSON.stringify(payload),
       credentials: 'same-origin',
     });
+
+    // A server-declared binary method streams bytes back rather than an
+    // envelope (#37) — hand the caller the Blob inside a normal ok envelope.
+    const resType = res.headers.get('content-type') ?? '';
+    if (res.ok && !resType.includes('application/json')) {
+      return { status: res.status, body: { ok: true, data: await res.blob() } };
+    }
+
     let body: unknown;
     try {
       body = await res.json();
@@ -115,7 +167,7 @@ export function httpTransport(options: HttpTransportOptions): Transport {
   };
 
   const transport: Transport = async (call: RpcCall): Promise<RpcResponse> => {
-    const { status, body } = await post(call);
+    const { status, body } = await post(call, toMultipart(call));
     // Transport-level failure (CSRF reject, 4xx/5xx without an envelope): surface
     // a generic error envelope rather than leaking the raw response.
     return isRpcResponse(body) ? body : transportError(status);

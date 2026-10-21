@@ -10,6 +10,7 @@ import type { ModuleContext } from '../types/module.types';
 describe('client.cache.preview()', () => {
   it('returns the same keys invalidate(pattern) would remove, without removing them', async () => {
     const { api, mock } = createMockClient({
+      cache: { enabled: true },
       modules: {
         auto: false as const,
         things: {

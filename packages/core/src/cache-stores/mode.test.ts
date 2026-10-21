@@ -17,7 +17,7 @@ function makeThingsClient(
     baseURL: 'http://mock.test',
     openapi: { mode: 'runtime' },
     http: { adapter: mock, retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false } },
-    cache,
+    cache: { enabled: true, ...cache },
     modules: {
       auto: false as const,
       things: {

@@ -15,6 +15,14 @@ function flattenHeaders(headers: Headers): Record<string, string> {
   return out;
 }
 
+/** Remove a header regardless of the casing it was supplied in. */
+function deleteHeader(headers: Record<string, string>, name: string): void {
+  const lower = name.toLowerCase();
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === lower) delete headers[key];
+  }
+}
+
 /** True for plain JSON-serializable objects (not Blob/FormData/ArrayBuffer/etc.). */
 function isPlainBody(body: unknown): boolean {
   if (body === null || typeof body !== 'object') return false;
@@ -69,6 +77,13 @@ function buildInit(request: ApiRequest): RequestInit {
       }
     } else {
       body = request.body as BodyInit;
+      // FormData/URLSearchParams must set their own Content-Type: multipart
+      // needs a generated boundary the caller cannot know. A globally
+      // configured `application/json` header would otherwise silently produce
+      // an unparsable body (#38).
+      if (body instanceof FormData || body instanceof URLSearchParams) {
+        deleteHeader(headers, 'content-type');
+      }
     }
   }
 

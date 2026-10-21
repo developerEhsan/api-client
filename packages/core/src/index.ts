@@ -41,6 +41,7 @@ export { AuthError } from './errors/AuthError';
 export { SchemaError, SchemaParseError } from './errors/SchemaError';
 export { ConfigurationError } from './errors/ConfigurationError';
 export { classifyError, extractServerError } from './errors/errorClassifier';
+export type { ErrorEnvelopeParser } from './errors/errorClassifier';
 
 // --- HTTP adapters ---
 export type { HttpAdapter, AdapterFactory } from './http/adapters/adapterInterface';
@@ -61,6 +62,8 @@ export {
 } from './utilities/cancellation';
 export type { CancellationManager } from './utilities/cancellation';
 export { withRetry, computeBackoff, parseRetryAfter } from './utilities/retry';
+export { paginate, paginateItems, collectPages } from './utilities/paginate';
+export type { Cursor, PaginateOptions } from './utilities/paginate';
 export type { ResolvedRetryOptions } from './utilities/retry';
 
 // --- Auth ---
@@ -108,12 +111,9 @@ export {
 
 // --- Environment ---
 export { detectEnvironment } from './environment/detect';
-export {
-  readServerHeader,
-  readServerCookie,
-  serverTenantResolver,
-  serverTokenFromCookie,
-} from './environment/serverContext';
+// Next.js server-context helpers moved to the `/next` subpath in v2 so that
+// non-Next projects never pull `next/headers` into their bundle graph (#41):
+//   import { serverTokenFromCookie } from '@developerehsan/api-client/next'
 
 // --- Types ---
 export type {
@@ -122,6 +122,7 @@ export type {
   PerCallConfig,
   ResolvedRequestConfig,
   RetryConfig,
+  IdempotencyConfig,
   HttpConfig,
   CancellationConfig,
   TenancyConfig,

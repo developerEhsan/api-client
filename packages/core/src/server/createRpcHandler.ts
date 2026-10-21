@@ -10,7 +10,13 @@
  * rehydratable errors to the browser.
  */
 
-import { type RpcCall, type RpcResponse, isRpcBatchRequest } from '../rpc/protocol';
+import {
+  type RpcCall,
+  type RpcHandledResponse,
+  type RpcResponse,
+  isRpcBatchRequest,
+  isRpcBinaryOk,
+} from '../rpc/protocol';
 import { assertServerOnly } from '../utilities/serverOnly';
 import {
   RpcSecurityError,
@@ -74,6 +80,31 @@ export type ExposeMap<Api> = {
 export interface RpcHandlerOptions<Api> {
   /** The allowlist of callable `module.method` pairs (S1). Required. */
   expose: ExposeMap<Api>;
+  /**
+   * Methods whose response is an opaque file/stream rather than JSON — CSV and
+   * PDF exports, attachment downloads (#37). Same shape as `expose`, and a
+   * method must be in BOTH to be callable.
+   *
+   * Declared here and nowhere else on purpose: a client-supplied
+   * `responseType` is stripped by `sanitizePerCall` (S4), so the browser can
+   * never turn a JSON method into a byte stream. The handler forces
+   * `responseType: 'blob'` for these and the route streams the result back
+   * with its own `Content-Type`/`Content-Disposition` instead of wrapping it
+   * in the JSON envelope.
+   *
+   * @default undefined (every exposed method is treated as JSON)
+   * @example `binary: { exports: ['flagsCsv', 'logsCsv'] }`
+   */
+  binary?: ExposeMap<Api>;
+  /**
+   * Names the file a binary response downloads as, by setting
+   * `Content-Disposition`. Return `undefined` to leave it unset (the browser
+   * then renders inline where it can).
+   *
+   * @default undefined (no Content-Disposition header)
+   * @example `binaryFilename: (call) => `${call.method}-${Date.now()}.csv``
+   */
+  binaryFilename?: (call: RpcCall<Api>, ctx: RpcRequestContext) => string | undefined;
   /**
    * Per-call permission check (S3), run AFTER the allowlist but BEFORE dispatch.
    * Return `false` (or reject) to deny — the caller then gets the same uniform
@@ -162,7 +193,7 @@ export interface RpcHandler {
    * )
    * if (res.ok) console.log(res.data) // → Pet
    */
-  handle(payload: unknown, ctx?: RpcRequestContext): Promise<RpcResponse>;
+  handle(payload: unknown, ctx?: RpcRequestContext): Promise<RpcHandledResponse>;
   /**
    * Validate and dispatch a batch envelope (`{ __rpcBatch: RpcCall[] }`). Each
    * sub-call runs through the SAME per-call trust boundary as {@link handle}
@@ -187,11 +218,35 @@ function defaultDev(): boolean {
 }
 
 /** Whether `module.method` is present in the allowlist (S1). */
-function isExposed<Api>(expose: ExposeMap<Api>, moduleName: string, methodName: string): boolean {
+function isExposed<Api>(
+  expose: ExposeMap<Api> | undefined,
+  moduleName: string,
+  methodName: string,
+): boolean {
+  if (!expose) return false;
   const entry = (expose as Record<string, readonly string[] | true | undefined>)[moduleName];
   if (entry === undefined) return false;
   if (entry === true) return true;
   return entry.includes(methodName);
+}
+
+/** True for a payload the route can stream back as-is. */
+function isBinaryPayload(value: unknown): boolean {
+  return (
+    (typeof Blob !== 'undefined' && value instanceof Blob) ||
+    value instanceof ArrayBuffer ||
+    ArrayBuffer.isView(value) ||
+    (typeof ReadableStream !== 'undefined' && value instanceof ReadableStream)
+  );
+}
+
+/**
+ * Strip anything that could break out of the quoted `filename="..."` of a
+ * `Content-Disposition` header — a header-injection guard, since the name may
+ * be derived from user-controlled data.
+ */
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^\w.\-+ ]/g, '_').slice(0, 120);
 }
 
 /** Validate the envelope shape and names; unsafe names collapse to not-available (S1, S2, S9). */
@@ -255,7 +310,10 @@ export function createRpcHandler<Api extends object>(
    * The single per-call trust boundary. Runs for every call — standalone AND
    * each batch entry — so a batch can never skip a check (S13/S15).
    */
-  const dispatchOne = async (payload: unknown, ctx: RpcRequestContext): Promise<RpcResponse> => {
+  const dispatchOne = async (
+    payload: unknown,
+    ctx: RpcRequestContext,
+  ): Promise<RpcHandledResponse> => {
     let call: RpcCall<Api> | null = null;
     try {
       call = parsePayload(payload);
@@ -286,12 +344,34 @@ export function createRpcHandler<Api extends object>(
       // S4: drop client-controlled perCall except a clamped timeout.
       const perCall = sanitizePerCall(call.args[1], maxTimeout);
 
+      // `responseType` is forced from the SERVER-side `binary` allowlist, never
+      // from the wire — sanitizePerCall already dropped any client value (S4).
+      const wantsBinary = isExposed(options.binary, call.module, call.method);
+      const effectivePerCall = wantsBinary
+        ? { ...perCall, responseType: 'blob' as const }
+        : perCall;
+
       let data: unknown = await (fn as (input?: unknown, perCall?: unknown) => Promise<unknown>)(
         input,
-        perCall,
+        effectivePerCall,
       );
       // S12: optional response projection/redaction.
       if (options.transformResult) data = await options.transformResult(data, call, ctx);
+
+      if (wantsBinary && isBinaryPayload(data)) {
+        const disposition = options.binaryFilename?.(call, ctx);
+        return {
+          ok: true,
+          binary: true,
+          data,
+          ...(typeof (data as Blob).type === 'string' && (data as Blob).type
+            ? { contentType: (data as Blob).type }
+            : {}),
+          ...(disposition
+            ? { contentDisposition: `attachment; filename="${sanitizeFilename(disposition)}"` }
+            : {}),
+        };
+      }
 
       return { ok: true, data };
     } catch (error) {
@@ -299,7 +379,7 @@ export function createRpcHandler<Api extends object>(
     }
   };
 
-  const handle = (payload: unknown, ctx: RpcRequestContext = {}): Promise<RpcResponse> =>
+  const handle = (payload: unknown, ctx: RpcRequestContext = {}): Promise<RpcHandledResponse> =>
     dispatchOne(payload, ctx);
 
   const handleBatch = async (
@@ -320,7 +400,12 @@ export function createRpcHandler<Api extends object>(
     }
     // Each sub-call is fully, independently validated + dispatched; one failure
     // never affects its siblings (partial success is expected).
-    return Promise.all(calls.map((c) => dispatchOne(c, ctx)));
+    const results = await Promise.all(calls.map((c) => dispatchOne(c, ctx)));
+    // A batch is one JSON array, so a byte stream has nowhere to go in it.
+    // Call a binary method on its own rather than silently JSON-mangling it.
+    return results.map((r) =>
+      isRpcBinaryOk(r) ? fail(new RpcSecurityError('binary_not_batchable', 400), null) : r,
+    );
   };
 
   return { handle, handleBatch };

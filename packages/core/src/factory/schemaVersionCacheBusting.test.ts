@@ -27,7 +27,7 @@ function makeClient(mock: ReturnType<typeof createMockAdapter>, currentDoc: () =
     openapi: { mode: 'runtime', runtimeURL: 'http://schema.test/openapi.json' },
     http: { adapter: mock, retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false } },
     dev: { schemaRefreshInterval: 20 },
-    cache: { strategy: 'cache-first', ttl: 60_000 },
+    cache: { enabled: true, strategy: 'cache-first', ttl: 60_000 },
     modules: {
       auto: false as const,
       things: {

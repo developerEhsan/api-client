@@ -7,6 +7,19 @@ import type { AdapterResponse, ApiRequest, ResponseType } from '../../types/http
 import type { HttpAdapter } from './adapterInterface';
 
 /**
+ * True for a body that carries (or needs the runtime to generate) its own
+ * Content-Type: FormData needs a multipart boundary, URLSearchParams its form
+ * encoding, a Blob its own type.
+ */
+function isSelfTypedBody(body: unknown): boolean {
+  return (
+    (typeof FormData !== 'undefined' && body instanceof FormData) ||
+    (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) ||
+    (typeof Blob !== 'undefined' && body instanceof Blob)
+  );
+}
+
+/**
  * Minimal structural shape of the axios surface we rely on. Kept local so the
  * package has no hard type dependency on axios.
  */
@@ -67,7 +80,18 @@ export function createAxiosAdapter(instance?: AxiosInstanceLike): HttpAdapter {
         responseType,
         validateStatus: () => true,
       };
-      if (request.body !== undefined) config.data = request.body;
+      if (request.body !== undefined) {
+        config.data = request.body;
+        // Let axios/the runtime set the multipart boundary or form encoding —
+        // a configured `application/json` header would corrupt the body (#38).
+        if (isSelfTypedBody(request.body)) {
+          for (const key of Object.keys(config.headers as Record<string, string>)) {
+            if (key.toLowerCase() === 'content-type') {
+              delete (config.headers as Record<string, string>)[key];
+            }
+          }
+        }
+      }
       if (request.signal) config.signal = request.signal;
       if (request.timeout !== undefined) config.timeout = request.timeout;
       if (request.meta?.['cookieAuth'] === true) config.withCredentials = true;

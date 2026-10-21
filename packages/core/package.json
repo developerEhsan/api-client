@@ -50,7 +50,9 @@
     "access": "public",
     "provenance": true
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -76,6 +78,11 @@
       "node": "./dist/server.js",
       "import": "./dist/server.js",
       "require": "./dist/server.cjs"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js",
+      "require": "./dist/next.cjs"
     },
     "./browser": {
       "types": "./dist/browser.d.ts",

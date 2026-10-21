@@ -6,6 +6,9 @@
  * `next/headers` is imported dynamically and guarded so this module is safe to
  * include in any bundle: outside a Next.js server request every reader resolves
  * to `undefined`.
+ *
+ * These helpers are published from the `/next` subpath, not the root entry, so
+ * a non-Next.js app never pulls this module into its graph (issue #41).
  */
 
 interface NextHeaders {
@@ -22,14 +25,24 @@ interface NextHeadersModule {
   cookies: () => NextCookies | Promise<NextCookies>;
 }
 
+// Assembled at runtime from fragments so no bundler — including Vite's
+// `optimizeDeps` esbuild scan, which does not honor `@vite-ignore` inside a
+// pre-bundled dependency — can constant-fold this back into a resolvable
+// specifier and try to resolve `next` in a project that does not have it.
+const NEXT_HEADERS_SPECIFIER = ['next', 'headers'].join('/');
+
+let nextHeadersModule: NextHeadersModule | null | undefined;
+
 async function loadNextHeaders(): Promise<NextHeadersModule | null> {
+  if (nextHeadersModule !== undefined) return nextHeadersModule;
   try {
-    // Non-literal specifier keeps bundlers from hard-resolving an optional dep.
-    const specifier = 'next/headers';
-    return (await import(/* @vite-ignore */ specifier)) as unknown as NextHeadersModule;
+    nextHeadersModule = (await import(
+      /* @vite-ignore */ /* webpackIgnore: true */ NEXT_HEADERS_SPECIFIER
+    )) as unknown as NextHeadersModule;
   } catch {
-    return null;
+    nextHeadersModule = null;
   }
+  return nextHeadersModule;
 }
 
 /** Read a request header on the server, or `undefined` outside a Next.js request. */

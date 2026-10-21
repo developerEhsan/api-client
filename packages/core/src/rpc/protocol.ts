@@ -62,8 +62,59 @@ export interface RpcErr {
   error: RpcErrorShape;
 }
 
+/**
+ * A result the route must stream back verbatim instead of JSON-encoding it:
+ * the method was declared binary server-side (`binary` on the handler) and
+ * produced a `Blob`/`ArrayBuffer`/`Uint8Array` (#37).
+ *
+ * Only the server can mark a method binary — a client-supplied `responseType`
+ * is dropped by `sanitizePerCall` (S4) and that stays true here.
+ */
+export interface RpcBinaryOk {
+  ok: true;
+  binary: true;
+  data: unknown;
+  contentType?: string;
+  contentDisposition?: string;
+}
+
 /** Uniform result of a handled RPC call. `handle()` never rejects with this. */
 export type RpcResponse = RpcOk | RpcErr;
+
+/** What `handle()` can return once binary methods are in play. */
+export type RpcHandledResponse = RpcResponse | RpcBinaryOk;
+
+/** True for the binary envelope, which must bypass `JSON.stringify`. */
+export function isRpcBinaryOk(value: unknown): value is RpcBinaryOk {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (value as { ok?: unknown }).ok === true &&
+    (value as { binary?: unknown }).binary === true
+  );
+}
+
+/**
+ * Body a browser sends when a call carries binary parts (#38). The JSON
+ * envelope travels in the `__rpc` field with each binary argument replaced by
+ * a `{ __rpcFile: '<field>' }` marker; the bytes travel as their own part
+ * under that field name, so nothing has to be base64-inflated.
+ */
+export const RPC_MULTIPART_ENVELOPE = '__rpc';
+
+/** Placeholder standing in for a binary argument inside the JSON envelope. */
+export interface RpcFileMarker {
+  __rpcFile: string;
+}
+
+/** True for a {@link RpcFileMarker} placeholder. */
+export function isRpcFileMarker(value: unknown): value is RpcFileMarker {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { __rpcFile?: unknown }).__rpcFile === 'string'
+  );
+}
 
 /**
  * A batch of calls coalesced by the browser client into one round-trip. The

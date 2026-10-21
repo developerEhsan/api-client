@@ -31,7 +31,7 @@ describe('cacheKeyParts (spec 10)', () => {
               (
                 await ctx.request(
                   { method: 'GET', path: '/dashboard/summary' },
-                  { cache: { cacheKeyParts: { workspaceId } } },
+                  { cache: { enabled: true, cacheKeyParts: { workspaceId } } },
                 )
               ).data,
           },
@@ -111,7 +111,7 @@ describe('cacheKeyParts (spec 10)', () => {
       baseURL: 'http://mock.test',
       openapi: { mode: 'runtime' },
       http: { adapter: mock, retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false } },
-      cache: { keyResolver: (req) => `custom:${req.method}:${req.url}` },
+      cache: { enabled: true, keyResolver: (req) => `custom:${req.method}:${req.url}` },
       modules: {
         auto: false as const,
         dashboard: {
@@ -136,7 +136,7 @@ describe('cacheKeyParts (spec 10)', () => {
       baseURL: 'http://mock.test',
       openapi: { mode: 'runtime' },
       http: { adapter: mock, retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false } },
-      cache: { keyResolver: (req) => `custom:${req.method}:${req.url}` },
+      cache: { enabled: true, keyResolver: (req) => `custom:${req.method}:${req.url}` },
       modules: {
         auto: false as const,
         dashboard: {
@@ -145,7 +145,7 @@ describe('cacheKeyParts (spec 10)', () => {
               (
                 await ctx.request(
                   { method: 'GET', path: '/dashboard/summary' },
-                  { cache: { cacheKeyParts: { workspaceId } } },
+                  { cache: { enabled: true, cacheKeyParts: { workspaceId } } },
                 )
               ).data,
           },

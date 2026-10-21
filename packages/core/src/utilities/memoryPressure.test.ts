@@ -16,7 +16,7 @@ function makeThingsClient(mock: ReturnType<typeof createMockAdapter>, cache: unk
       adapter: mock,
       retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false },
     },
-    cache: cache as never,
+    cache: { enabled: true, ...(cache as object) } as never,
     modules: {
       auto: false as const,
       things: {

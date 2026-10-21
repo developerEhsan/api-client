@@ -124,7 +124,11 @@ export function resolveRequestConfig(
   );
 
   const cache = deepMerge<ResolvedRequestConfig['cache']>(
-    { enabled: true, ttl: 60000, strategy: 'cache-first', maxSize: 500 },
+    // v2: off by default. Most consumers pair this client with a caching
+    // layer of their own (TanStack Query, SWR); a second, invisible cache
+    // underneath it serves stale reads after a write with no way to see it
+    // (#40). Opt in with `cache: { enabled: true }`.
+    { enabled: false, ttl: 60000, strategy: 'cache-first', maxSize: 500 },
     global.cache ?? {},
     moduleCfg?.cache ?? {},
     perCall?.cache ?? {},
@@ -138,6 +142,12 @@ export function resolveRequestConfig(
       baseDelay: 500,
       maxDelay: 30000,
       jitter: true,
+      // v2: only methods that are idempotent by definition are retried by
+      // default. A 5xx or dropped connection on a POST can land *after* the
+      // server committed the write, so a blind retry double-creates (#42).
+      // Opt an unsafe method in with `retryUnsafeMethods: true` — pair it with
+      // `idempotency` so the server can collapse the duplicate.
+      retryUnsafeMethods: false,
     },
     global.http?.retry ?? {},
     moduleCfg?.retry ?? {},

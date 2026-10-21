@@ -196,7 +196,7 @@ describe('E2E · auth', () => {
 
 describe('E2E · caching', () => {
   it('cache-first serves the second identical GET from cache', async () => {
-    const { api, mock } = make({ cache: { strategy: 'cache-first', ttl: 60_000 } });
+    const { api, mock } = make({ cache: { enabled: true, strategy: 'cache-first', ttl: 60_000 } });
     let hits = 0;
     mock.on('GET', '/things/1', () => {
       hits++;
@@ -208,7 +208,9 @@ describe('E2E · caching', () => {
   });
 
   it('network-first falls back to cache when the network fails', async () => {
-    const { api, raw, mock } = make({ cache: { strategy: 'network-first', ttl: 60_000 } });
+    const { api, raw, mock } = make({
+      cache: { enabled: true, strategy: 'network-first', ttl: 60_000 },
+    });
     let ok = true;
     mock.on('GET', '/things/1', () => (ok ? { data: { id: '1' } } : { status: 500, data: {} }));
     await api.things.get('1'); // primes the cache
@@ -216,12 +218,16 @@ describe('E2E · caching', () => {
     const fallback = await api.things.get('1'); // network 500 -> cached value
     expect(fallback).toEqual({ id: '1' });
     // Glob invalidation drops the entry.
-    (raw as unknown as { cache: { invalidate: (p: string) => void } }).cache.invalidate('*');
+    (
+      raw as unknown as { cache: { enabled: true; invalidate: (p: string) => void } }
+    ).cache.invalidate('*');
     await expect(api.things.get('1')).rejects.toBeInstanceOf(ApiError);
   });
 
   it('stale-while-revalidate serves stale immediately then refreshes', async () => {
-    const { api, mock } = make({ cache: { strategy: 'stale-while-revalidate', ttl: 0 } });
+    const { api, mock } = make({
+      cache: { enabled: true, strategy: 'stale-while-revalidate', ttl: 0 },
+    });
     let version = 1;
     mock.on('GET', '/things/1', () => ({ data: { v: version } }));
     const first = await api.things.get('1');
@@ -237,14 +243,14 @@ describe('E2E · caching', () => {
   });
 
   it('per-call cache bust forces a fresh fetch', async () => {
-    const { api, mock } = make({ cache: { strategy: 'cache-first', ttl: 60_000 } });
+    const { api, mock } = make({ cache: { enabled: true, strategy: 'cache-first', ttl: 60_000 } });
     let hits = 0;
     mock.on('GET', '/things/1', () => {
       hits++;
       return { data: { id: '1' } };
     });
     await api.things.get('1');
-    await api.things.get('1', { cache: { bust: true } });
+    await api.things.get('1', { cache: { enabled: true, bust: true } });
     expect(hits).toBe(2);
   });
 
@@ -252,7 +258,7 @@ describe('E2E · caching', () => {
     const l2 = createMemoryPersistentStore();
     const setSpy = vi.spyOn(l2, 'set');
     const { api, mock } = make({
-      cache: { strategy: 'cache-first', ttl: 60_000, persistentStore: l2 },
+      cache: { enabled: true, strategy: 'cache-first', ttl: 60_000, persistentStore: l2 },
     });
     mock.on('GET', '/things/1', { data: { id: '1' } });
     await api.things.get('1');
@@ -322,7 +328,7 @@ describe('E2E · tenancy', () => {
     let current = 'acme';
     const { api, mock } = make({
       tenancy: { headerName: 'X-Tenant-ID', getTenantId: () => current },
-      cache: { strategy: 'cache-first', ttl: 60_000 },
+      cache: { enabled: true, strategy: 'cache-first', ttl: 60_000 },
     });
     const seen: string[] = [];
     mock.on('GET', '/things/1', (r) => {

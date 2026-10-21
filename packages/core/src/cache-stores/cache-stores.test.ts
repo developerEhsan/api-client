@@ -114,7 +114,7 @@ describe('persistentStore through createClient', () => {
       baseURL: 'http://mock.test',
       openapi: { mode: 'runtime' },
       http: { adapter: mock, retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false } },
-      cache: { persistentStore: l2 },
+      cache: { enabled: true, persistentStore: l2 },
       modules: {
         auto: false as const,
         things: {
