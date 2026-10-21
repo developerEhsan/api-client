@@ -17,10 +17,7 @@ type Api = {
   reports: {
     getDashboard: () => Promise<unknown>;
   };
-  cache: {
-    invalidateTags(tags: string[]): number;
-    get(key: string): unknown;
-  };
+  cache: { enabled: true; invalidateTags(tags: string[]): number; get(key: string): unknown };
 };
 
 /** A client whose `users` module tags GET-by-id under `user:<id>` and whose
@@ -40,14 +37,14 @@ function makeClient(mock: ReturnType<typeof createMockAdapter>, getToken: () => 
             (
               await ctx.request(
                 { method: 'GET', path: '/users/{id}', pathParams: { id } },
-                { cache: { tags: [`user:${id}`] } },
+                { cache: { enabled: true, tags: [`user:${id}`] } },
               )
             ).data,
           updateUser: async (ctx: ModuleContext, id: string) =>
             (
               await ctx.request(
                 { method: 'PATCH', path: '/users/{id}', pathParams: { id }, body: {} },
-                { cache: { invalidatesTags: [`user:${id}`] } },
+                { cache: { enabled: true, invalidatesTags: [`user:${id}`] } },
               )
             ).data,
         },
@@ -58,7 +55,7 @@ function makeClient(mock: ReturnType<typeof createMockAdapter>, getToken: () => 
             (
               await ctx.request(
                 { method: 'GET', path: '/dashboard' },
-                { cache: { tags: ['dashboard'] } },
+                { cache: { enabled: true, tags: ['dashboard'] } },
               )
             ).data,
         },
@@ -136,7 +133,7 @@ describe('tag-based invalidation', () => {
               (
                 await ctx.request(
                   { method: 'GET', path: '/users/{id}', pathParams: { id } },
-                  { cache: { tags: [`user:${id}`, 'extra-tag'] } },
+                  { cache: { enabled: true, tags: [`user:${id}`, 'extra-tag'] } },
                 )
               ).data,
           },
@@ -144,7 +141,7 @@ describe('tag-based invalidation', () => {
       },
     }) as unknown as {
       users: { getUser: (id: string) => Promise<unknown> };
-      cache: { invalidateTags(tags: string[]): number };
+      cache: { enabled: true; invalidateTags(tags: string[]): number };
     };
 
     await api.users.getUser('9');
@@ -163,7 +160,7 @@ describe('tag-based invalidation', () => {
       baseURL: 'http://mock.test',
       openapi: { mode: 'runtime' },
       http: { adapter: mock, retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false } },
-      cache: { maxSize: 1 },
+      cache: { enabled: true, maxSize: 1 },
       modules: {
         auto: false as const,
         users: {
@@ -172,7 +169,7 @@ describe('tag-based invalidation', () => {
               (
                 await ctx.request(
                   { method: 'GET', path: '/users/{id}', pathParams: { id } },
-                  { cache: { tags: [`user:${id}`] } },
+                  { cache: { enabled: true, tags: [`user:${id}`] } },
                 )
               ).data,
           },
@@ -180,7 +177,7 @@ describe('tag-based invalidation', () => {
       },
     }) as unknown as {
       users: { getUser: (id: string) => Promise<unknown> };
-      cache: { invalidateTags(tags: string[]): number };
+      cache: { enabled: true; invalidateTags(tags: string[]): number };
     };
 
     await api.users.getUser('1'); // stored under user:1, maxSize 1

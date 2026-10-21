@@ -12,7 +12,7 @@ function makeThingsClient(cache: {
   ttl?: number;
 }) {
   const { api, mock } = createMockClient({
-    cache,
+    cache: { enabled: true, ...cache },
     modules: {
       auto: false as const,
       things: {

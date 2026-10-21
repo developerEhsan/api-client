@@ -34,6 +34,25 @@ export interface TimeoutFailure {
 /** Discriminated description of a request failure, consumed by {@link classifyError}. */
 export type ClassifierInput = HttpFailure | NetworkFailure | TimeoutFailure;
 
+/**
+ * Teaches the classifier a non-default error shape. Return the flattened
+ * `{ code, message, details }` for a body you recognize, or `null` to fall
+ * back to the built-in flat-shape detection.
+ *
+ * Configure it once via `createClient({ errorEnvelope })` and every error that
+ * flows through the pipeline is parsed with it (issue #39).
+ *
+ * @example
+ * ```ts
+ * // API returns { error: { code, message, details } }
+ * const errorEnvelope: ErrorEnvelopeParser = (body) =>
+ *   typeof body === 'object' && body !== null && 'error' in body
+ *     ? ((body as { error: ServerErrorBody }).error ?? null)
+ *     : null
+ * ```
+ */
+export type ErrorEnvelopeParser = (body: unknown) => ServerErrorBody | null | undefined;
+
 /** Result of splitting a response body into a structured error vs. raw text. */
 export interface ExtractedServerError {
   serverError: ServerErrorBody | null;
@@ -55,8 +74,24 @@ export interface ExtractedServerError {
  * // -> { serverError: null, rawBody: '<html>502</html>' }
  * ```
  */
-export function extractServerError(data: unknown): ExtractedServerError {
+export function extractServerError(
+  data: unknown,
+  envelope?: ErrorEnvelopeParser,
+): ExtractedServerError {
   if (data === undefined || data === null) return { serverError: null };
+
+  // A consumer-supplied envelope parser wins over the built-in flat shape, so
+  // a nested `{ error: { code, message } }` body resolves to a real message
+  // instead of being stringified into `rawBody` (#39). It is user code on an
+  // error path, so a throw must never mask the original failure.
+  if (envelope) {
+    try {
+      const unwrapped = envelope(data);
+      if (isServerErrorBody(unwrapped)) return { serverError: unwrapped };
+    } catch {
+      // Fall through to the built-in detection below.
+    }
+  }
 
   if (isServerErrorBody(data)) {
     return { serverError: data };
@@ -110,7 +145,7 @@ function stringifyBody(data: unknown): string | undefined {
  * classifyError({ kind: 'timeout', timeoutMs: 2000 }) // -> TimeoutError
  * ```
  */
-export function classifyError(input: ClassifierInput): ApiError {
+export function classifyError(input: ClassifierInput, envelope?: ErrorEnvelopeParser): ApiError {
   switch (input.kind) {
     case 'network':
       return new NetworkError({
@@ -130,7 +165,7 @@ export function classifyError(input: ClassifierInput): ApiError {
       });
 
     case 'http': {
-      const { serverError, rawBody } = extractServerError(input.data);
+      const { serverError, rawBody } = extractServerError(input.data, envelope);
       const code = serverError?.code;
       // A structured message is used verbatim; an unstructured body (e.g. an
       // HTML error page) is only used as a short, truncated hint so the message

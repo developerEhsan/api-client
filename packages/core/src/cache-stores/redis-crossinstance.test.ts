@@ -56,7 +56,7 @@ function makeUsersClient(store: ReturnType<typeof createRedisStore>) {
     baseURL: 'http://mock.test',
     openapi: { mode: 'runtime' },
     http: { adapter: mock, retry: { attempts: 1, baseDelay: 0, maxDelay: 0, jitter: false } },
-    cache: { persistentStore: store },
+    cache: { enabled: true, persistentStore: store },
     modules: {
       auto: false as const,
       users: {
@@ -65,7 +65,7 @@ function makeUsersClient(store: ReturnType<typeof createRedisStore>) {
             (
               await ctx.request(
                 { method: 'GET', path: '/users/{id}', pathParams: { id } },
-                { cache: { tags: [`user:${id}`] } },
+                { cache: { enabled: true, tags: [`user:${id}`] } },
               )
             ).data,
         },
@@ -73,7 +73,7 @@ function makeUsersClient(store: ReturnType<typeof createRedisStore>) {
     },
   }) as unknown as {
     users: { getUser: (id: string) => Promise<unknown> };
-    cache: { invalidateTags(tags: string[]): number };
+    cache: { enabled: true; invalidateTags(tags: string[]): number };
   };
   return { api, mock };
 }

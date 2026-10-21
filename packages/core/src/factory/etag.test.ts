@@ -9,7 +9,7 @@ import type { ModuleContext } from '../types/module.types';
 
 function makeThingsClient() {
   const { api, mock } = createMockClient({
-    cache: { strategy: 'network-first', ttl: 60_000 },
+    cache: { enabled: true, strategy: 'network-first', ttl: 60_000 },
     modules: {
       auto: false as const,
       things: {

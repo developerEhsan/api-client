@@ -24,4 +24,10 @@ export {
   type RateLimitHit,
   type RateLimitCall,
 } from './rateLimit';
-export type { RpcCall, RpcResponse, RpcErrorShape } from '../rpc/protocol';
+export type {
+  RpcCall,
+  RpcResponse,
+  RpcErrorShape,
+  RpcBinaryOk,
+  RpcHandledResponse,
+} from '../rpc/protocol';

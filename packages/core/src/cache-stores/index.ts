@@ -157,6 +157,27 @@ export interface IndexedDbStoreOptions {
    * @default optional, unset means entries are stored as plain JSON (today's behavior)
    */
   encrypt?: CacheCipher;
+  /**
+   * Broadcast local invalidations to other tabs of the same origin over
+   * `BroadcastChannel`, and apply theirs locally — the browser-side
+   * counterpart to the Redis store's `crossInstance` (#46).
+   *
+   * Without it a mutation in one tab leaves every other open tab serving the
+   * stale cached GET until its TTL expires.
+   *
+   * No-ops where `BroadcastChannel` is unavailable.
+   *
+   * @default false
+   * @example `createIndexedDbStore({ crossTab: true })`
+   */
+  crossTab?: boolean;
+  /**
+   * `BroadcastChannel` name used when `crossTab` is on. Change it to isolate
+   * two independent caches sharing one origin.
+   * @default 'apicache:invalidate'
+   * @example `createIndexedDbStore({ crossTab: true, channel: 'admin-cache' })`
+   */
+  channel?: string;
 }
 
 /** Pluggable cipher for {@link IndexedDbStoreOptions.encrypt}. See its security note. */
@@ -274,7 +295,7 @@ export function createIndexedDbStore(options: IndexedDbStoreOptions = {}): Persi
         }),
     );
 
-  return {
+  const store: PersistentCacheStore = {
     get: (key) =>
       guard(
         tx<unknown>('readonly', (s) => s.get(key)).then(async (v) => {
@@ -317,6 +338,53 @@ export function createIndexedDbStore(options: IndexedDbStoreOptions = {}): Persi
         undefined,
         { op: 'clear' },
       ),
+  };
+
+  if (!options.crossTab) return store;
+
+  interface BroadcastChannelLike {
+    postMessage(data: unknown): void;
+    onmessage: ((ev: { data: unknown }) => void) | null;
+  }
+  const BC = (globalThis as { BroadcastChannel?: new (name: string) => BroadcastChannelLike })
+    .BroadcastChannel;
+  // Same contract as every other capability here: an unavailable backend
+  // degrades to the plain store rather than throwing at construction.
+  if (!BC) return store;
+
+  const channelName = options.channel ?? 'apicache:invalidate';
+  const origin = randomOrigin();
+  const handlers = new Set<(msg: InvalidationMessage) => void>();
+  let channel: BroadcastChannelLike;
+  try {
+    channel = new BC(channelName);
+  } catch {
+    return store;
+  }
+
+  channel.onmessage = (ev) => {
+    // Payload comes from a sibling tab, so it is parsed through the same
+    // validator as the Redis path rather than trusted as-is.
+    const msg = parseInvalidationMessage(
+      typeof ev.data === 'string' ? ev.data : JSON.stringify(ev.data),
+    );
+    if (!msg || msg.origin === origin) return;
+    for (const handler of handlers) handler(msg);
+  };
+
+  return {
+    ...store,
+    onRemoteInvalidate(handler) {
+      handlers.add(handler);
+    },
+    publishInvalidate(msg: OutgoingInvalidationMessage) {
+      try {
+        channel.postMessage(JSON.stringify({ ...msg, origin }));
+      } catch {
+        // Fire-and-forget: a closed channel must never fail a request.
+      }
+      return Promise.resolve();
+    },
   };
 }
 

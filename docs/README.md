@@ -30,6 +30,7 @@ so they run with **no backend setup**.
 ## Guides by topic
 
 ### Foundations
+- [Migrating to v2](./migrating-v2.md) — three changed defaults, and everything new
 - [Getting started](./getting-started.md) — your first client in 5 minutes
 - [Mental model](./mental-model.md) — the three concepts and the request pipeline
 - [Modules & methods](./modules-and-methods.md) — `defineModule`, `ctx.request`, composed calls

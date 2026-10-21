@@ -3,8 +3,8 @@
  * an HTTP adapter for the detected runtime, builds the request pipeline, and
  * returns a `Proxy`-backed client exposing modules plus utility members.
  *
- * Retry / cache / dedup / schema-loading are Phase 3+/Phase 6 concerns and are
- * stubbed with TODOs here.
+ * The pipeline every call flows through is:
+ * queue -> dedup -> cache -> auth -> dispatch(retry) -> validate -> cache write.
  */
 
 import type { AdapterName } from '../environment/edgeSafe';
@@ -46,7 +46,7 @@ import { NetworkError } from '../errors/NetworkError';
 import { OperationError } from '../errors/OperationError';
 import { SchemaError } from '../errors/SchemaError';
 import { TimeoutError } from '../errors/TimeoutError';
-import { classifyError } from '../errors/errorClassifier';
+import { type ClassifierInput, classifyError } from '../errors/errorClassifier';
 import { createAxiosAdapter } from '../http/adapters/axiosAdapter';
 import { createFetchAdapter } from '../http/adapters/fetchAdapter';
 import {
@@ -214,13 +214,27 @@ function isAdapterLike(value: unknown): value is HttpAdapterLike {
   );
 }
 
+/** Methods whose semantics make a repeat safe, per RFC 9110 §9.2.2. */
+const IDEMPOTENT_METHODS = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE', 'PUT', 'DELETE']);
+
+function isIdempotentMethod(method: string): boolean {
+  return IDEMPOTENT_METHODS.has(method.toUpperCase());
+}
+
+/** Default idempotency-key factory: `crypto.randomUUID()` where available. */
+function randomKey(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (typeof c?.randomUUID === 'function') return c.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 /** Eager configuration validation (spec E1, R7). */
 function validateConfig(config: GlobalConfig): void {
   if (!isPlainObject(config)) {
     throw new ConfigurationError('createClient expects a configuration object.');
   }
-  if (!isPlainObject(config.openapi)) {
-    throw new ConfigurationError('createClient requires an "openapi" configuration block (R7).');
+  if (config.openapi !== undefined && !isPlainObject(config.openapi)) {
+    throw new ConfigurationError('"openapi" must be a configuration object when provided (R7).');
   }
   const hasBaseURL = typeof config.baseURL === 'string' && config.baseURL.length > 0;
   const hasEnv = typeof config.activeEnvironment === 'string';
@@ -348,6 +362,12 @@ export function createClient(config: GlobalConfig): ApiClient {
 
   // Mutable working copy so `setEnvironment` / `config.update` can mutate.
   let currentConfig: GlobalConfig = { ...config };
+
+  // Every error raised by the pipeline goes through here so a consumer's
+  // `errorEnvelope` parser applies uniformly (#39). Read lazily from
+  // `currentConfig` so `setEnvironment` and friends stay honored.
+  const classify = (input: ClassifierInput): ApiError =>
+    classifyError(input, currentConfig.errorEnvelope);
   const adapter = instantiateAdapter(currentConfig);
 
   const moduleDefinitions = collectModuleDefinitions(currentConfig.modules);
@@ -375,7 +395,7 @@ export function createClient(config: GlobalConfig): ApiClient {
   // concurrent 401s trigger exactly one refresh (spec 6.2).
   const authManager: AuthManager = createAuthManager({
     adapter,
-    classifyError,
+    classifyError: classify,
   });
 
   // --- Dev logging ---------------------------------------------------------
@@ -481,7 +501,7 @@ export function createClient(config: GlobalConfig): ApiClient {
   // on it without hanging forever when no runtime schema is configured.
   let schemaReady: Promise<void> = Promise.resolve();
   {
-    const oa = currentConfig.openapi;
+    const oa = currentConfig.openapi ?? {};
     const wantsRuntime = oa.mode !== 'codegen' && typeof oa.runtimeURL === 'string';
     if (wantsRuntime && oa.runtimeURL) {
       const loader = createSchemaLoader({ cache: schemaCache });
@@ -566,6 +586,19 @@ export function createClient(config: GlobalConfig): ApiClient {
     // post-refresh retry.
     const baseHeaders: Record<string, string> = { ...resolved.headers };
     const baseQuery: Record<string, unknown> = { ...spec.query };
+
+    // Idempotency key (#42): one key per logical call, reused across every
+    // retry attempt of that call, so a retry the server already applied is
+    // collapsed rather than committed twice.
+    const idempotencyCfg = currentConfig.http?.idempotency;
+    const idempotencyHeader = idempotencyCfg?.header ?? 'Idempotency-Key';
+    const idempotencyMethods = idempotencyCfg?.methods ?? ['POST', 'PATCH'];
+    const idempotencyKey =
+      idempotencyCfg?.enabled &&
+      idempotencyMethods.some((m) => m.toUpperCase() === spec.method.toUpperCase()) &&
+      baseHeaders[idempotencyHeader] === undefined
+        ? (idempotencyCfg.generate ?? randomKey)()
+        : undefined;
     // Set by `fetchThrough` just before a revalidation fetch when a prior
     // cache entry carries an `ETag` (spec 08.2) — merged into every attempt
     // (incl. a post-401-refresh retry) for this one `run()` call.
@@ -619,6 +652,11 @@ export function createClient(config: GlobalConfig): ApiClient {
         ...auth.headers,
         ...conditionalHeaders,
       };
+      // Generated once per logical call (see `idempotencyKey` below) and
+      // replayed on every attempt — a key that changed per attempt would
+      // defeat the point (#42).
+      if (idempotencyKey !== undefined) headers[idempotencyHeader] = idempotencyKey;
+
       const query: Record<string, unknown> = { ...baseQuery, ...auth.query };
 
       const url = buildUrl({
@@ -687,7 +725,7 @@ export function createClient(config: GlobalConfig): ApiClient {
             timeoutMs,
           });
         }
-        throw classifyError({ kind: 'network', cause, request: outgoing });
+        throw classify({ kind: 'network', cause, request: outgoing });
       } finally {
         if (timer !== undefined) clearTimeout(timer);
         if (onExternalAbort && externalSignal) {
@@ -714,8 +752,13 @@ export function createClient(config: GlobalConfig): ApiClient {
 
     // Retry options resolved for this request (defaults applied upstream).
     const retryConfigOnRetry = resolved.retry.onRetry;
+    // A retried write can double-commit when the failure happened after the
+    // server already applied it, so unsafe methods are excluded unless the
+    // caller opts in (#42). An explicit `retryOn` replaces this entirely —
+    // it is the caller stating the policy themselves.
+    const retryableByMethod = resolved.retry.retryUnsafeMethods || isIdempotentMethod(spec.method);
     const retryOpts: ResolvedRetryOptions = {
-      attempts: resolved.retry.attempts,
+      attempts: retryableByMethod || resolved.retry.retryOn ? resolved.retry.attempts : 1,
       backoff: resolved.retry.backoff,
       baseDelay: resolved.retry.baseDelay,
       maxDelay: resolved.retry.maxDelay,
@@ -740,7 +783,7 @@ export function createClient(config: GlobalConfig): ApiClient {
           const result = await attempt();
           const { status, statusText, headers, data } = result.raw;
           if (status >= 500 || status === 429) {
-            throw classifyError({
+            throw classify({
               kind: 'http',
               status,
               statusText,
@@ -776,7 +819,7 @@ export function createClient(config: GlobalConfig): ApiClient {
         cacheConfigured &&
         (resolved.cache.cacheableStatuses ?? []).includes(raw.status);
       if (raw.status >= 400 && !isNegativeCacheable) {
-        throw classifyError({
+        throw classify({
           kind: 'http',
           status: raw.status,
           statusText: raw.statusText,
@@ -878,7 +921,7 @@ export function createClient(config: GlobalConfig): ApiClient {
     const negativeTtl = resolved.cache.negativeTtl ?? cacheTtl;
     /** A negative-cacheable entry rethrows on a cache hit (spec 08.1) — it never resolves as success. */
     const throwFromEntry = (entry: CacheEntry): never => {
-      throw classifyError({
+      throw classify({
         kind: 'http',
         status: entry.status,
         statusText: '',
@@ -971,7 +1014,7 @@ export function createClient(config: GlobalConfig): ApiClient {
           // without throwing so it could be cached above — now enforce the
           // normal "this call rejects on an error status" contract.
           if (isNegative) {
-            throw classifyError({
+            throw classify({
               kind: 'http',
               status: response.status,
               statusText: response.statusText ?? '',

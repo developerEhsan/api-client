@@ -9,6 +9,7 @@
  */
 
 import type { ApiError } from '../errors/ApiError';
+import type { ErrorEnvelopeParser } from '../errors/errorClassifier';
 import type { ComposedHooks } from '../factory/composeHooks';
 import type { AuthConfig } from './auth.types';
 import type { CacheConfig } from './cache.types';
@@ -86,6 +87,67 @@ export interface RetryConfig {
    * @example `retry: { onRetry: (attempt, error) => console.warn('retry', attempt, error) }`
    */
   onRetry?: (attempt: number, error: ApiError) => void;
+  /**
+   * Allow retries on methods that are not idempotent by definition
+   * (`POST`/`PATCH`).
+   *
+   * Off by default since v2: a 5xx or dropped connection on a write can arrive
+   * *after* the server already committed it, so an automatic retry can create
+   * the resource twice (#42). Turn it on only when the endpoint is safe to
+   * repeat — ideally together with {@link IdempotencyConfig} so the server can
+   * collapse the duplicate itself.
+   *
+   * `retryOn`, when supplied, replaces this check entirely.
+   *
+   * @default false
+   * @example `retry: { retryUnsafeMethods: true }`
+   */
+  retryUnsafeMethods?: boolean;
+}
+
+/**
+ * Attaches an idempotency key to unsafe requests so a retry — this client's or
+ * the caller's — is collapsed server-side instead of committing twice (#42).
+ *
+ * The key is generated once per logical call and reused across every retry
+ * attempt of that call, which is what makes the retry provably safe. A
+ * different call gets a different key.
+ *
+ * Your API has to honor the header for this to mean anything; the client only
+ * guarantees the key is stable across retries.
+ *
+ * @example
+ * ```ts
+ * http: { idempotency: { enabled: true } }            // Idempotency-Key, POST+PATCH
+ * http: { idempotency: { enabled: true, header: 'X-Request-Id' } }
+ * ```
+ */
+export interface IdempotencyConfig {
+  /**
+   * Generate and send a key for every matching request.
+   * @default false
+   * @example `idempotency: { enabled: true }`
+   */
+  enabled?: boolean;
+  /**
+   * Header the key is sent in.
+   * @default 'Idempotency-Key'
+   * @example `idempotency: { header: 'X-Idempotency-Key' }`
+   */
+  header?: string;
+  /**
+   * Methods that get a key. Safe methods never need one.
+   * @default ['POST', 'PATCH']
+   * @example `idempotency: { methods: ['POST', 'PUT', 'PATCH'] }`
+   */
+  methods?: string[];
+  /**
+   * Key factory. Defaults to `crypto.randomUUID()`, falling back to a
+   * random/timestamp string where that is unavailable.
+   * @default optional, unset means a random UUID per call
+   * @example `idempotency: { generate: () => myRequestId() }`
+   */
+  generate?: () => string;
 }
 
 /**
@@ -171,6 +233,12 @@ export interface HttpConfig {
    * @example `http: { retry: { attempts: 5 } }`
    */
   retry?: RetryConfig;
+  /**
+   * Idempotency-key policy for unsafe methods (see {@link IdempotencyConfig}).
+   * @default optional, unset means no key is sent
+   * @example `http: { idempotency: { enabled: true } }`
+   */
+  idempotency?: IdempotencyConfig;
   /**
    * When `true`, in-flight identical requests are coalesced into a single
    * network call.
@@ -530,10 +598,11 @@ export interface GlobalConfig {
 
   /**
    * OpenAPI wiring and validation policy (see {@link OpenApiConfig}).
-   * @default no default — required
+   * @default optional, unset means `{}` — no codegen spec, no runtime fetch,
+   * no response validation. Only needed for the OpenAPI-driven features.
    * @example `{ openapi: { runtimeURL: 'https://petstore3.swagger.io/api/v3/openapi.json' } }`
    */
-  openapi: OpenApiConfig;
+  openapi?: OpenApiConfig;
 
   /**
    * Transport configuration (see {@link HttpConfig}).
@@ -547,6 +616,28 @@ export interface GlobalConfig {
    * @example `{ auth: { strategy: 'bearer', getToken: () => localStorage.getItem('token') } }`
    */
   auth?: AuthConfig;
+  /**
+   * Teaches the error classifier a non-default error-body shape. Return the
+   * flattened `{ code, message, details }` for a body you recognize, or `null`
+   * to fall back to the built-in flat `{ code, message }` detection.
+   *
+   * Without this, a nested envelope is not recognized as an error body and the
+   * whole payload is stringified into `rawBody`, so `error.message` becomes a
+   * raw JSON blob instead of the server's message (#39).
+   *
+   * @default optional, unset means only the flat `{ code, message }` shape is
+   * recognized
+   * @example
+   * ```ts
+   * // API returns { error: { code, message, details } }
+   * errorEnvelope: (body) =>
+   *   typeof body === 'object' && body !== null && 'error' in body
+   *     ? ((body as { error: ServerErrorBody }).error ?? null)
+   *     : null
+   * ```
+   */
+  errorEnvelope?: ErrorEnvelopeParser;
+
   /**
    * Response cache configuration (see {@link CacheConfig}).
    * @default optional, unset means the CacheConfig defaults apply
@@ -797,7 +888,12 @@ export interface ResolvedRequestConfig {
   auth: AuthConfig;
   cache: Required<Pick<CacheConfig, 'enabled' | 'ttl' | 'strategy' | 'maxSize'>> &
     CacheConfig & { bust?: boolean; tags?: string[]; invalidatesTags?: string[] };
-  retry: Required<Pick<RetryConfig, 'attempts' | 'backoff' | 'baseDelay' | 'maxDelay' | 'jitter'>> &
+  retry: Required<
+    Pick<
+      RetryConfig,
+      'attempts' | 'backoff' | 'baseDelay' | 'maxDelay' | 'jitter' | 'retryUnsafeMethods'
+    >
+  > &
     RetryConfig;
   tenancy: TenancyConfig;
   validation: ValidationConfig;

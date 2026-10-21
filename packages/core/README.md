@@ -53,7 +53,8 @@ export const api = createClient({
   openapi: { mode: 'runtime' },
   auth: { strategy: 'bearer', getToken: () => localStorage.getItem('access_token') },
   http: { timeout: 10_000, retry: { attempts: 3 } },
-  cache: { strategy: 'stale-while-revalidate', ttl: 60_000 },
+  // Caching is OFF unless you ask for it — see "Defaults worth knowing" below.
+  cache: { enabled: true, strategy: 'stale-while-revalidate', ttl: 60_000 },
   modules: {
     users: defineModule({
       methods: {
@@ -80,6 +81,52 @@ const made  = await api.users.create({ name: 'Ada', email: 'ada@x.com' })
 That is a fully working client with auth, caching, retries, timeouts, and dedup
 already active.
 
+## Defaults worth knowing
+
+The defaults are deliberately conservative — the client should never silently
+change what your app observes.
+
+| Behavior | Default | Why |
+| --- | --- | --- |
+| **Response cache** | **off** (`cache.enabled: false`) | Most apps already run TanStack Query / SWR. A second cache underneath that one serves a stale read after a write with nothing in the UI to explain it. Opt in with `cache: { enabled: true }` (then `ttl` 60s, `cache-first`). |
+| **Retries** | 3 attempts, **safe methods only** | `GET`/`HEAD`/`OPTIONS`/`TRACE`/`PUT`/`DELETE`. A `POST` is never retried automatically: a 5xx or dropped connection can arrive *after* the server committed the write, so a retry would create the resource twice. |
+| **Idempotency keys** | off | Turn on with `http: { idempotency: { enabled: true } }` to make retrying a write safe (see below). |
+| **Dedup** | on, `GET` only | Identical in-flight requests share one network call. |
+| **Timeout** | 10s | Per request, enforced on every adapter. |
+| **OpenAPI** | none | `openapi` is optional; omit it entirely unless you use codegen, runtime validation, or drift detection. |
+
+### Retrying writes safely
+
+To retry a `POST`/`PATCH`, opt the method in *and* send an idempotency key so
+the server can collapse the duplicate:
+
+```ts
+createClient({
+  baseURL,
+  http: {
+    retry: { attempts: 3, retryUnsafeMethods: true },
+    idempotency: { enabled: true }, // Idempotency-Key, POST + PATCH
+  },
+})
+```
+
+One key is generated per logical call and replayed on every retry of that call,
+which is what makes the retry safe. Your API has to honor the header.
+
+### Custom error shapes
+
+The classifier recognizes a flat `{ code, message }` body. If your API nests its
+errors, teach it the shape — otherwise `error.message` is the whole payload as a
+JSON string:
+
+```ts
+createClient({
+  baseURL,
+  // API returns { error: { code, message, details } }
+  errorEnvelope: (body) => (body as { error?: ServerErrorBody }).error ?? null,
+})
+```
+
 ## Features
 
 | Area | What you get |
@@ -87,9 +134,9 @@ already active.
 | **Typed proxy** | `api.[module].[method](args)` with full input/output inference |
 | **Adapters** | Axios (default) or native `fetch`; auto-fallback to `fetch` on edge |
 | **Auth** | Bearer, Cookie, API key, OAuth2 (with automatic 401 → refresh → retry) |
-| **Caching** | In-memory LRU, TTL, `cache-first` / `network-first` / `stale-while-revalidate`, glob invalidation |
+| **Caching** | Opt-in (`cache.enabled`); in-memory LRU, TTL, `cache-first` / `network-first` / `stale-while-revalidate`, glob invalidation |
 | **Dedup** | Identical in-flight requests share one network call |
-| **Retries** | Exponential/linear/fixed backoff, full-jitter, honors `Retry-After` |
+| **Retries** | Exponential/linear/fixed backoff, full-jitter, honors `Retry-After`; safe methods only by default, with optional idempotency keys |
 | **Timeouts** | Per-request, enforced on every adapter (incl. `fetch`) |
 | **Cancellation** | `AbortSignal` support + debounce-cancel |
 | **Concurrency** | Global request queue with a configurable limit |
@@ -103,7 +150,9 @@ already active.
 | **RPC rate limiter** | Built-in `createRateLimiter` for the handler `onRequest` (per-IP / per-session, pluggable store) |
 | **Streaming** | `ctx.stream()` → `AsyncIterable` for NDJSON / SSE / raw byte streams |
 | **Modules beyond HTTP** | `ctx.run()` runs any async logic with opt-in queue/dedup/retry/timeout; `ctx.emit` / `ctx.logger` / `ctx.config` |
-| **Cache persistence** | Pluggable L2 stores (IndexedDB / Redis) behind the in-memory LRU |
+| **Cache persistence** | Pluggable L2 stores (IndexedDB / Redis) behind the in-memory LRU; cross-instance invalidation via Redis pub/sub or `BroadcastChannel` across tabs |
+| **Pagination** | `paginate` / `paginateItems` / `collectPages` drive a cursor to exhaustion as an `AsyncIterable` |
+| **File transfer** | `FormData` bodies and binary (`Blob`/stream) responses, over the direct client *and* the RPC bridge |
 | **Hooks** | `onRequest`/`onResponse`/`onError`/`onRetry`/`onSuccess`/`onSettled` composed across global → module → per-call |
 | **Testing** | `createMockClient` + `MockAdapter` |
 
@@ -116,6 +165,7 @@ already active.
 | `@developerehsan/api-client/testing` | Mock client & adapter |
 | `@developerehsan/api-client/server` | SSR RPC bridge — server half (`createRpcHandler`, batching, `createRateLimiter`, Next / TanStack Start / Remix glue) |
 | `@developerehsan/api-client/browser` | SSR RPC bridge — dependency-free browser client (`createRpcClient`, transports, batching) |
+| `@developerehsan/api-client/next` | Next.js server-context helpers (`serverTokenFromCookie`, `serverTenantResolver`) — the only entry that touches `next/headers` |
 | `@developerehsan/api-client/cache-stores` | Pluggable persistent cache stores (memory / IndexedDB / Redis) |
 
 ## Related packages

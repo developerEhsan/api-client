@@ -6,3 +6,6 @@ coverage/
 .DS_Store
 *.tsbuildinfo
 .pnpm-store/
+
+# Serena MCP server workspace
+.serena/

@@ -9,7 +9,7 @@ import type { ModuleContext } from '../types/module.types';
 
 function makeUsersClient(cache: { cacheableStatuses?: number[]; negativeTtl?: number }) {
   const { api, mock } = createMockClient({
-    cache,
+    cache: { enabled: true, ...cache },
     modules: {
       auto: false as const,
       users: {
@@ -20,7 +20,7 @@ function makeUsersClient(cache: { cacheableStatuses?: number[]; negativeTtl?: nu
             (
               await ctx.request(
                 { method: 'POST', path: '/users', body: { id } },
-                { cache: { invalidatesTags: [`user:${id}`] } },
+                { cache: { enabled: true, invalidatesTags: [`user:${id}`] } },
               )
             ).data,
         },
@@ -97,7 +97,7 @@ describe('negative caching', () => {
 
   it('a tagged negative entry IS cleared by invalidatesTags, same as any other entry', async () => {
     const mock2 = createMockClient({
-      cache: { cacheableStatuses: [404], negativeTtl: 60_000 },
+      cache: { enabled: true, cacheableStatuses: [404], negativeTtl: 60_000 },
       modules: {
         auto: false as const,
         users: {
@@ -106,14 +106,14 @@ describe('negative caching', () => {
               (
                 await ctx.request(
                   { method: 'GET', path: '/users/{id}', pathParams: { id } },
-                  { cache: { tags: [`user:${id}`] } },
+                  { cache: { enabled: true, tags: [`user:${id}`] } },
                 )
               ).data,
             createUser: async (ctx: ModuleContext, id: string) =>
               (
                 await ctx.request(
                   { method: 'POST', path: '/users', body: { id } },
-                  { cache: { invalidatesTags: [`user:${id}`] } },
+                  { cache: { enabled: true, invalidatesTags: [`user:${id}`] } },
                 )
               ).data,
           },
