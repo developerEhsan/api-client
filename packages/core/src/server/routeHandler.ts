@@ -75,6 +75,14 @@ function jsonResponse(body: RpcResponse | RpcResponse[], status: number): Respon
  * enforced against the bytes themselves, not the header.
  *
  * Returns `null` when the body exceeds the cap.
+ *
+ * Over the cap we stop reading and release the lock WITHOUT calling
+ * `reader.cancel()`. Cancelling closes the stream while the runtime may still
+ * be enqueueing already-received chunks into it, which surfaces as
+ * `ERR_INVALID_STATE: ReadableStream is already closed` thrown inside undici —
+ * an unhandled rejection we cannot catch from here, and one that can take down
+ * a server process. Dropping the reader is enough: the caller responds 413
+ * immediately and the runtime tears the request down.
  */
 async function readLimited(req: Request, limit: number): Promise<ArrayBuffer | null> {
   const body = req.body;
@@ -88,10 +96,7 @@ async function readLimited(req: Request, limit: number): Promise<ArrayBuffer | n
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > limit) {
-        await reader.cancel();
-        return null;
-      }
+      if (total > limit) return null;
       chunks.push(value);
     }
   } finally {
